@@ -47,8 +47,8 @@ public fun CredentialKeychain.Companion.forCurrentPlatform(
     serviceName: String,
     accountName: String = serviceName,
 ): CredentialKeychain {
-    validateIdentifier(serviceName)
-    validateIdentifier(accountName)
+    validateIdentifier(serviceName, "serviceName")
+    validateIdentifier(accountName, "accountName")
     return ValidatingKeychain(AndroidKeychain(context.applicationContext, serviceName, accountName))
 }
 
@@ -157,7 +157,8 @@ internal class AndroidKeychain(
             } catch (error: Exception) {
                 val reason =
                     when (error) {
-                        is AEADBadTagException, is KeyPermanentlyInvalidatedException, is CharacterCodingException -> Reason.Corrupted
+                        is KeyPermanentlyInvalidatedException -> Reason.AuthenticationInvalidated
+                        is AEADBadTagException, is CharacterCodingException -> Reason.Corrupted
                         else -> Reason.Failed
                     }
                 // Keystore and file exceptions carry no plaintext; keep them as the cause for diagnosis.

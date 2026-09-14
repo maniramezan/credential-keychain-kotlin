@@ -107,8 +107,8 @@ public interface CredentialKeychain {
             accountName: String,
             options: KeychainOptions,
         ): CredentialKeychain {
-            validateIdentifier(serviceName)
-            validateIdentifier(accountName)
+            validateIdentifier(serviceName, "serviceName")
+            validateIdentifier(accountName, "accountName")
             return ValidatingKeychain(platformKeychain(serviceName, accountName, options))
         }
     }
@@ -180,10 +180,20 @@ public class KeychainUnavailableException(
         Unsupported,
 
         /**
-         * The store is locked or access was denied (for example, a locked device or a
-         * dismissed access prompt). Retrying later may succeed.
+         * The store is locked or access was denied (for example, a locked device).
+         * Retrying later may succeed.
          */
         Locked,
+
+        /** The user dismissed an access or authentication prompt. Retry only on user action. */
+        Canceled,
+
+        /**
+         * The key protecting an entry was permanently invalidated, for example because
+         * biometric enrollment changed or the device lock screen was removed. The entry
+         * cannot be recovered; delete it or [clear][CredentialKeychain.clear] the store.
+         */
+        AuthenticationInvalidated,
 
         /**
          * Stored data exists but cannot be decrypted or decoded, for example after
@@ -220,18 +230,31 @@ internal class UnsupportedKeychainStore(
     private fun unsupported() = KeychainUnavailableException(KeychainUnavailableException.Reason.Unsupported, platform)
 }
 
-internal fun validateIdentifier(value: String) {
-    require(value.isNotBlank()) { "Credential identifiers must not be blank." }
+/** Shared rules for identifiers: service names, account names, keys, and future aliases. */
+internal fun validateIdentifier(
+    value: String,
+    field: String,
+) {
+    require(value.isNotBlank()) { "$field must not be blank." }
     require(value.none { it == '\u0000' || it == '\n' || it == '\r' }) {
-        "Credential identifiers must not contain NUL or line breaks."
+        "$field must not contain NUL or line breaks."
     }
+}
+
+/** Shared rules for secret string values. Messages never include the value. */
+internal fun validateSecretValue(
+    value: String,
+    field: String,
+) {
+    require(value.isNotBlank()) { "$field must not be blank; use delete() to remove an entry." }
+    require('\u0000' !in value) { "$field must not contain NUL." }
 }
 
 internal class ValidatingKeychain(
     private val delegate: CredentialKeychain,
 ) : CredentialKeychain {
     override fun read(key: String): String? {
-        validateIdentifier(key)
+        validateIdentifier(key, "key")
         return delegate.read(key)
     }
 
@@ -239,14 +262,13 @@ internal class ValidatingKeychain(
         key: String,
         value: String,
     ) {
-        validateIdentifier(key)
-        require(value.isNotBlank()) { "Credential values must not be blank; use delete() to remove an entry." }
-        require('\u0000' !in value) { "Credential values must not contain NUL." }
+        validateIdentifier(key, "key")
+        validateSecretValue(value, "value")
         delegate.write(key, value)
     }
 
     override fun delete(key: String) {
-        validateIdentifier(key)
+        validateIdentifier(key, "key")
         delegate.delete(key)
     }
 

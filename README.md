@@ -19,7 +19,8 @@ writing a platform-specific secure-storage adapter for each target.
   library throws `KeychainUnavailableException` instead of writing plaintext or an
   in-memory stand-in you might mistake for durable storage.
 - **Actionable failures.** Every failure carries a `reason` — `Unsupported`, `Locked`,
-  `Corrupted`, or `Failed` — so you can retry later, re-prompt, or reset the store.
+  `Canceled`, `AuthenticationInvalidated`, `Corrupted`, or `Failed` — so you can retry
+  later, re-prompt, or reset the store.
 - **Namespaced by service + account.** Multiple apps, environments, or user accounts
   sharing a device don't collide, because both `serviceName` and `accountName` are
   bound into the storage key rather than just a bare key string.
@@ -223,6 +224,9 @@ keychain.write("github-token", token)
   throw `KeychainUnavailableException`; do not interpret them as missing credentials.
   - `Unsupported` — no usable backend in this platform or environment.
   - `Locked` — the store is locked or access was denied; retrying later may succeed.
+  - `Canceled` — the user dismissed an access prompt; retry only on user action.
+  - `AuthenticationInvalidated` — the protecting key was permanently invalidated (for
+    example, biometric enrollment changed); delete the entry or `clear()`.
   - `Corrupted` — data exists but can't be decrypted or decoded; delete the entry or `clear()`.
   - `Failed` — any other failure, such as an I/O error or timeout.
 - `write` stores values exactly, including surrounding whitespace. Blank values throw
