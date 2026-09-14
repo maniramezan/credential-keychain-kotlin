@@ -1,8 +1,6 @@
 # Design proposal: passwords, certificates, hardware keys, and biometrics
 
-Status: **draft for review** — nothing here is implemented. Decisions marked **Decide** need
-sign-off before implementation starts, because they shape public API that is expensive to
-change after 0.1.0.
+Status: **accepted** — decisions below are final; implementation lands in phased PRs before 0.1.0.
 
 ## Goals
 
@@ -25,7 +23,7 @@ change after 0.1.0.
 
 ## API shape
 
-**Decide:** separate interfaces per capability, created by factories on each interface's
+**Decided:** separate interfaces per capability, created by factories on each interface's
 companion, mirroring `CredentialKeychain.forCurrentPlatform`. One god-interface would make
 fakes large and force every platform to stub capabilities it lacks.
 
@@ -82,7 +80,7 @@ Apple `SecIdentityRef`/`SecKeyRef`) are exposed through platform-specific extens
 so apps can use identities for mutual TLS and keys for platform crypto APIs without the common
 API modelling them.
 
-**Decide:** add failure reasons now. Adding an enum constant after release breaks exhaustive
+**Decided:** add these failure reasons before 0.1.0. Adding an enum constant after release breaks exhaustive
 `when` expressions in consumer code:
 
 - `Canceled` — the user dismissed an authentication prompt.
@@ -98,7 +96,7 @@ API modelling them.
 | iOS/tvOS/watchOS/macOS native | `kSecClassInternetPassword` with `kSecAttrServer` + `kSecAttrAccount`; namespace in `kSecAttrSecurityDomain` | Honors `AppleAccessibility`; never synchronized |
 | macOS JVM | `security add-internet-password -s server -a user -r` via `-i` stdin | Same same-user readability caveat as generic passwords |
 | Linux JVM | Secret Service item with `server`/`username` attributes | Reuses `library` marker |
-| Windows JVM | Windows Credential Manager (`CredWriteW`, `CRED_TYPE_GENERIC`) | Replaces DPAPI files for this capability; needs a PowerShell P/Invoke shim |
+| Windows JVM | Windows Credential Manager (`CredWriteW`, `CRED_TYPE_GENERIC`) | Decided over DPAPI files; needs a PowerShell P/Invoke shim |
 
 ### 2. Certificates and identities
 
@@ -108,7 +106,7 @@ API modelling them.
 | Apple native | `SecPKCS12Import`, then `SecItemAdd` identity + certificates | iOS requires identities be imported into the app's keychain |
 | macOS JVM | JDK `KeychainStore` provider, or `security import` | `security import -P` takes the passphrase as an argument (visible in `ps`) — **must not be used**; prefer the JCA provider |
 | Windows JVM | JDK `SunMSCAPI` `Windows-MY` KeyStore | Native current-user certificate store, no subprocess |
-| Linux JVM | PKCS#12 bytes as an encrypted Secret Service item | No standard secure certificate store; the 8 KiB `secret-tool` limit rules out large chains — needs D-Bus instead of `secret-tool`, or `Unsupported` above the limit |
+| Linux JVM | PKCS#12 bytes as an encrypted Secret Service item | No standard secure certificate store; bundles over the 8 KiB `secret-tool` limit fail with `Unsupported`; no D-Bus client |
 
 ### 3. Hardware-backed keys
 
@@ -119,9 +117,9 @@ API modelling them.
 | macOS native | Secure Enclave requires the data-protection keychain → signed app with keychain entitlements | Unsigned tools get `Unsupported` |
 | Desktop JVM | No CLI path to Secure Enclave or TPM | `Unsupported` |
 
-**Decide:** whether `HardwareKeySpec(requireHardware = true)` fails with `Unsupported` when only
-software keys are available, or silently falls back and reports `SecurityLevel.Software`.
-Recommendation: fail by default; allow an explicit opt-in to software keys.
+**Decided:** generation fails with `Unsupported` when no secure hardware is available.
+Callers opt in to software keys with `HardwareKeySpec(allowSoftwareKeys = true)`, and
+`HardwareKeyInfo.securityLevel` always reports the level actually obtained.
 
 ### 4. Biometric-protected secrets
 
@@ -134,7 +132,7 @@ Recommendation: fail by default; allow an explicit opt-in to software keys.
 
 Reads suspend and must not block the main thread while a prompt is visible.
 
-**Decide:** module split. Recommendation: publish biometrics as a separate artifact,
+**Decided:** publish biometrics as a separate artifact,
 `credential-keychain-kotlin-biometric`, so the core library stays free of `androidx.biometric`
 and the `suspend`/UI requirements. This turns the build into a multi-module project, and the
 artifact checker and consumer build must cover both artifacts.
@@ -162,11 +160,11 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
 4. `CertificateStore` — the Linux size limit and macOS passphrase handling need care.
 5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness.
 
-## Open decisions
+## Decisions
 
-1. Separate interfaces per capability (recommended) vs. one expanded interface.
-2. New failure reasons added before 0.1.0.
-3. Hardware keys: fail without hardware (recommended) vs. software fallback.
-4. Biometrics as a separate artifact (recommended) vs. in core.
-5. Windows passwords in Credential Manager (recommended) vs. DPAPI files like generic secrets.
-6. Linux certificates: D-Bus client for large items vs. `Unsupported` above 8 KiB.
+1. Separate interfaces per capability.
+2. `Canceled` and `AuthenticationInvalidated` failure reasons added before 0.1.0.
+3. Hardware keys fail without secure hardware unless callers opt in to software keys.
+4. Biometric-protected secrets ship as the separate `credential-keychain-kotlin-biometric` artifact.
+5. Windows passwords use Credential Manager.
+6. Linux certificates use `secret-tool`; bundles over 8 KiB are `Unsupported`.
