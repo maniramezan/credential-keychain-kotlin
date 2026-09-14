@@ -28,7 +28,13 @@ kotlin {
         minSdk = 23
     }
     iosArm64()
-    iosSimulatorArm64()
+    iosSimulatorArm64 {
+        // Hosted in a simulator app by scripts/apple-simulator-tests.sh.
+        binaries.framework {
+            baseName = "KeychainConsumer"
+            export(keychainDependency)
+        }
+    }
     macosArm64 {
         binaries.framework {
             baseName = "KeychainConsumer"
