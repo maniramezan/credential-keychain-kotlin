@@ -24,7 +24,7 @@ jobs:
       - run: ./gradlew dokkaGeneratePublicationHtml --stacktrace
       - name: Check documentation entry point
         run: test -s build/dokka/html/index.html
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: build/dokka/html
   deploy:
