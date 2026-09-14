@@ -39,11 +39,11 @@ internal class LinuxPasswordStore(
         }
     }
 
-    /** Lists usernames with `search`, then reads each password with `lookup` for exact bytes. */
+    /** Lists usernames from `search` attribute output, then reads each password with `lookup` for exact bytes. */
     override fun findAll(server: String): List<PasswordCredential> {
         val result = tool.run("search", "--all", "--", *attributes(server, username = null))
         if (result.exitCode != 0) throw tool.failure(result)
-        return usernamesIn(result.stdout).distinct().mapNotNull { find(server, it) }
+        return usernamesIn(result.stderr).distinct().mapNotNull { find(server, it) }
     }
 
     override fun delete(
@@ -70,8 +70,8 @@ internal class LinuxPasswordStore(
         }.toTypedArray()
 
     /**
-     * `search` prints each item's secret before its `attribute.*` lines. Passwords saved through
-     * this library cannot contain line breaks, so a secret cannot forge an attribute line.
+     * `secret-tool search` writes `label`, `secret`, and timestamps to stdout but every
+     * `attribute.*` line to stderr, so [output] is stderr and a secret can never forge a username.
      */
     internal fun usernamesIn(output: String): List<String> =
         output

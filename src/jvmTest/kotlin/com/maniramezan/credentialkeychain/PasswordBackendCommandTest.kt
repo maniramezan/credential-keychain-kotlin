@@ -209,7 +209,13 @@ class PasswordBackendCommandTest {
                     when (args[1]) {
                         "search" -> {
                             assertEquals(listOf("--all", "--", "library", "credential-keychain-kotlin-password"), args.subList(2, 6))
-                            CommandResult(0, search, "")
+                            // secret-tool prints attribute lines to stderr and everything else to stdout.
+                            val (attributes, details) = search.lines().partition { it.startsWith("attribute.") }
+                            CommandResult(
+                                0,
+                                details.joinToString("\n") + "\nattribute.username = stdout-is-ignored",
+                                attributes.joinToString("\n"),
+                            )
                         }
 
                         "lookup" -> {
