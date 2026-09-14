@@ -178,10 +178,15 @@ Consumed from Swift, the same shared `CredentialKeychain` instance created in Ko
 (or exposed through your KMP module's generated interop) works unchanged:
 
 ```swift
-let keychain = CredentialKeychainKt.forCurrentPlatform(serviceName: "my-app", accountName: "user-123")
+let keychain = try CredentialKeychainCompanion.shared.forCurrentPlatform(serviceName: "my-app", accountName: "user-123")
 try keychain.write(key: "api-key", value: "secret-token")
 let token = try keychain.read(key: "api-key")
 ```
+
+Export this dependency from your consuming Kotlin framework before importing it in
+Swift; this package publishes KLIBs, not a standalone Swift framework. Generated names
+can vary with your framework configuration. Public operations declare `@Throws` for
+availability and validation errors so Swift callers can handle them with `do`/`catch`.
 
 Entries are stored with `WhenUnlockedThisDeviceOnly` accessibility and are not
 iCloud-synchronized. Your app needs valid code signing and Keychain access for its
@@ -276,8 +281,12 @@ a separate consumer against their Gradle metadata.
 
 ## Verification
 
+See the [architecture and verification matrix](docs/architecture.md) for source-set
+responsibilities, every non-Web target gap, runtime evidence, and release limitations.
+
+
 ```sh
-./gradlew jvmCoverageVerification
+./gradlew ktlintCheck jvmCoverageVerification
 ./gradlew checkKotlinAbi dokkaGeneratePublicationHtml
 ./gradlew connectedAndroidDeviceTest
 ```
@@ -287,7 +296,7 @@ The common/JVM coverage gate is 85% lines and 70% branches; reports are under
 execution. The [release guide](docs/releasing.md) explains the scope and platform checks.
 
 CI configures real-store tests on Windows, macOS, and Linux, Android emulator tests on
-API 23 and 35, native macOS Keychain tests, Apple/web compilation, JS/Wasm Node tests,
+API 23 and 35, native ARM/Intel macOS Keychain tests, Kotlin lint, Apple/web compilation, JS/Wasm Node tests,
 API compatibility, documentation, and publication-consumer checks. Reports are retained
 as workflow artifacts even on failure.
 

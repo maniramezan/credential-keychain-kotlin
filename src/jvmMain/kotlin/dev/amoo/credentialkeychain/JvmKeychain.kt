@@ -1,6 +1,9 @@
 package dev.amoo.credentialkeychain
 
-internal actual fun platformKeychain(serviceName: String, accountName: String): CredentialKeychain {
+internal actual fun platformKeychain(
+    serviceName: String,
+    accountName: String,
+): CredentialKeychain {
     val osName = System.getProperty("os.name").orEmpty()
     return when {
         osName.contains("Mac", ignoreCase = true) -> MacOSKeychainStore(serviceName, accountName)

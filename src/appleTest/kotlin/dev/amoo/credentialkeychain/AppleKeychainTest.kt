@@ -21,7 +21,10 @@ class AppleKeychainTest {
             first.write("key", " ")
             assertNull(first.read("key"))
             first.delete("missing")
-        } finally { first.delete("key"); second.delete("key") }
+        } finally {
+            first.delete("key")
+            second.delete("key")
+        }
     }
 
     @Test fun ambiguousServiceAndKeyPairsRemainIsolated() {
@@ -33,6 +36,9 @@ class AppleKeychainTest {
             second.write("part.key", "second")
             assertEquals("first", first.read("key"))
             assertEquals("second", second.read("part.key"))
-        } finally { first.delete("key"); second.delete("part.key") }
+        } finally {
+            first.delete("key")
+            second.delete("part.key")
+        }
     }
 }

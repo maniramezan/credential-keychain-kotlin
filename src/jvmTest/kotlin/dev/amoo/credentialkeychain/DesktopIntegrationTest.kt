@@ -1,7 +1,7 @@
 package dev.amoo.credentialkeychain
 
-import java.util.UUID
 import org.junit.jupiter.api.Assumptions.assumeTrue
+import java.util.UUID
 import kotlin.test.*
 
 class DesktopIntegrationTest {
@@ -16,12 +16,19 @@ class DesktopIntegrationTest {
             assertEquals("secret ' \" \\ 秘密", CredentialKeychain.forCurrentPlatform(service, "first").read("key"))
             assertNull(second.read("key"))
             second.write("key", "other")
+            for (value in listOf("616263", "e7a798e5af86", "  spaced  ", "a\tb", "秘密", "0x616263")) {
+                first.write("key", value)
+                assertEquals(value, first.read("key"))
+            }
             first.write("key", "updated")
             assertEquals("updated", first.read("key"))
             assertEquals("other", second.read("key"))
             first.write("key", " ")
             assertNull(first.read("key"))
             first.delete("missing")
-        } finally { first.delete("key"); second.delete("key") }
+        } finally {
+            first.delete("key")
+            second.delete("key")
+        }
     }
 }

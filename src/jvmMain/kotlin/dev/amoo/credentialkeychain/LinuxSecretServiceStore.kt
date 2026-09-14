@@ -20,7 +20,10 @@ internal class LinuxSecretServiceStore(
         }
     }
 
-    override fun write(key: String, value: String) {
+    override fun write(
+        key: String,
+        value: String,
+    ) {
         if (value.isBlank()) {
             delete(key)
             return
@@ -37,7 +40,10 @@ internal class LinuxSecretServiceStore(
         if (result.exitCode != 0 && !(result.exitCode == 1 && result.stderr.isBlank())) throw failure(result)
     }
 
-    private fun run(vararg args: String, stdin: String? = null): CommandResult {
+    private fun run(
+        vararg args: String,
+        stdin: String? = null,
+    ): CommandResult {
         val executable = checkNotNull(secretTool)
         return runner.run(listOf(executable.absolutePath) + args, stdin)
     }

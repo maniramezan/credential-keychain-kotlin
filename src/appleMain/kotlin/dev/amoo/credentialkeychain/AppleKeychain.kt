@@ -6,29 +6,47 @@ import kotlinx.cinterop.*
 import platform.CoreFoundation.*
 import platform.Security.*
 
-internal actual fun platformKeychain(serviceName: String, accountName: String): CredentialKeychain =
-    AppleKeychain(serviceName, accountName)
+internal actual fun platformKeychain(
+    serviceName: String,
+    accountName: String,
+): CredentialKeychain = AppleKeychain(serviceName, accountName)
 
-internal class AppleKeychain(private val service: String, private val account: String) : CredentialKeychain {
-    override fun read(key: String): String? = query(key) { query ->
-        CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
-        CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
-        memScoped {
-            val result = alloc<CFTypeRefVar>()
-            result.value = null
-            val status = SecItemCopyMatching(query, result.ptr)
-            if (status == errSecItemNotFound) return@memScoped null
-            checkStatus(status)
-            val data: CFDataRef = checkNotNull(result.value).reinterpret()
-            try {
-                val size = CFDataGetLength(data).toInt()
-                if (size == 0) "" else checkNotNull(CFDataGetBytePtr(data)).readBytes(size).decodeToString()
-            } finally { CFRelease(data) }
+internal class AppleKeychain(
+    private val service: String,
+    private val account: String,
+) : CredentialKeychain {
+    override fun read(key: String): String? =
+        query(key) { query ->
+            CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
+            CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
+            memScoped {
+                val result = alloc<CFTypeRefVar>()
+                result.value = null
+                val status = SecItemCopyMatching(query, result.ptr)
+                if (status == errSecItemNotFound) return@memScoped null
+                checkStatus(status)
+                val data: CFDataRef = checkNotNull(result.value).reinterpret()
+                try {
+                    val size = CFDataGetLength(data).toInt()
+                    if (size == 0) {
+                        ""
+                    } else {
+                        checkNotNull(CFDataGetBytePtr(data)).readBytes(size).decodeToString()
+                    }
+                } finally {
+                    CFRelease(data)
+                }
+            }
         }
-    }
 
-    override fun write(key: String, value: String) {
-        if (value.isBlank()) { delete(key); return }
+    override fun write(
+        key: String,
+        value: String,
+    ) {
+        if (value.isBlank()) {
+            delete(key)
+            return
+        }
         val bytes = value.encodeToByteArray()
         bytes.usePinned { pinned ->
             val data = checkNotNull(CFDataCreate(kCFAllocatorDefault, pinned.addressOf(0).reinterpret(), bytes.size.convert()))
@@ -50,16 +68,23 @@ internal class AppleKeychain(private val service: String, private val account: S
                     }
                     checkStatus(status)
                 }
-            } finally { CFRelease(updates); CFRelease(data) }
+            } finally {
+                CFRelease(updates)
+                CFRelease(data)
+            }
         }
     }
 
-    override fun delete(key: String) = query(key) { query ->
-        val status = SecItemDelete(query)
-        if (status != errSecItemNotFound) checkStatus(status)
-    }
+    override fun delete(key: String) =
+        query(key) { query ->
+            val status = SecItemDelete(query)
+            if (status != errSecItemNotFound) checkStatus(status)
+        }
 
-    private fun <T> query(key: String, block: (CFMutableDictionaryRef) -> T): T {
+    private fun <T> query(
+        key: String,
+        block: (CFMutableDictionaryRef) -> T,
+    ): T {
         val query = dictionary()
         val serviceValue = checkNotNull(CFStringCreateWithCString(null, credentialNamespace(service, key), kCFStringEncodingUTF8))
         val accountValue = checkNotNull(CFStringCreateWithCString(null, account, kCFStringEncodingUTF8))
@@ -69,11 +94,14 @@ internal class AppleKeychain(private val service: String, private val account: S
             CFDictionarySetValue(query, kSecAttrAccount, accountValue)
             CFDictionarySetValue(query, kSecAttrSynchronizable, kCFBooleanFalse)
             return block(query)
-        } finally { CFRelease(query); CFRelease(serviceValue); CFRelease(accountValue) }
+        } finally {
+            CFRelease(query)
+            CFRelease(serviceValue)
+            CFRelease(accountValue)
+        }
     }
 
-    private fun dictionary(): CFMutableDictionaryRef =
-        checkNotNull(CFDictionaryCreateMutable(null, 0, null, null))
+    private fun dictionary(): CFMutableDictionaryRef = checkNotNull(CFDictionaryCreateMutable(null, 0, null, null))
 
     private fun checkStatus(status: Int) {
         if (status != errSecSuccess) throw KeychainUnavailableException("Apple Keychain status $status")

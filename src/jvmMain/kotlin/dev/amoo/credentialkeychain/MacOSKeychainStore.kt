@@ -12,15 +12,18 @@ internal class MacOSKeychainStore(
     private val servicePrefix = serviceName
 
     override fun read(key: String): String? {
-        val result = runSecurityCommand("find-generic-password", "-a", accountName, "-s", serviceName(key), "-w")
+        val result = runSecurityCommand("find-generic-password", "-a", accountName, "-s", serviceName(key), "-g")
         return when {
-            result.exitCode == 0 -> result.stdout.removeTrailingLineBreaks().decodeSecurityOutput()
+            result.exitCode == 0 -> result.stderr.decodeSecurityOutput()
             result.isMissingEntry -> null
             else -> throw KeychainUnavailableException("macOS security exited with ${result.exitCode}")
         }
     }
 
-    override fun write(key: String, value: String) {
+    override fun write(
+        key: String,
+        value: String,
+    ) {
         if (value.isBlank()) {
             delete(key)
             return
@@ -40,31 +43,42 @@ internal class MacOSKeychainStore(
         }
     }
 
-    private fun runSecurityCommand(vararg args: String, stdin: String? = null): CommandResult {
+    private fun runSecurityCommand(
+        vararg args: String,
+        stdin: String? = null,
+    ): CommandResult {
         if (!securityTool.canExecute()) throw KeychainUnavailableException("macOS security tool is missing")
         return runner.run(listOf(securityTool.path) + args, stdin)
     }
 
     private fun serviceName(key: String): String = credentialNamespace(servicePrefix, key)
 
-    /**
-     * macOS 26 hex-encodes `security -w` output whenever the stored password contains
-     * non-ASCII bytes, instead of printing it raw as prior macOS versions did. Decode that
-     * form back to text; ASCII-only values round-trip through `security` unchanged and are
-     * returned as-is.
-     */
+    /** The diagnostic form tags binary output with 0x; -w is ambiguous for hex-looking secrets. */
     private fun String.decodeSecurityOutput(): String {
-        if (isEmpty() || length % 2 != 0 || any { Character.digit(it, 16) < 0 }) return this
-        val bytes = ByteArray(length / 2) { i ->
-            ((Character.digit(this[i * 2], 16) shl 4) or Character.digit(this[i * 2 + 1], 16)).toByte()
+        val output = removeTrailingLineBreaks()
+        if (!output.startsWith("password: ")) throw invalidOutput()
+        val payload = output.removePrefix("password: ")
+        if (payload.isEmpty()) return ""
+        if (payload.startsWith('"') && payload.endsWith('"') && payload.length >= 2) {
+            return payload.substring(1, payload.lastIndex)
         }
-        return bytes.decodeStrictUtf8() ?: this
+        if (!payload.startsWith("0x")) throw invalidOutput()
+        val hex = payload.removePrefix("0x").substringBefore(' ')
+        if (hex.isEmpty() || hex.length % 2 != 0 || hex.any { it !in "0123456789abcdefABCDEF" }) {
+            throw invalidOutput()
+        }
+        val bytes = ByteArray(hex.length / 2) { i -> hex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
+        return bytes.decodeStrictUtf8() ?: throw invalidOutput()
     }
 
+    private fun invalidOutput() = KeychainUnavailableException("macOS security returned invalid data")
+
     private fun ByteArray.decodeStrictUtf8(): String? {
-        val decoder = Charsets.UTF_8.newDecoder()
-            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
-            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+        val decoder =
+            Charsets.UTF_8
+                .newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
         return try {
             decoder.decode(java.nio.ByteBuffer.wrap(this)).toString()
         } catch (_: java.nio.charset.CharacterCodingException) {
