@@ -31,6 +31,14 @@ _ = expectError { _ = try passwords.findAll(server: "\n") }
 _ = expectError { try passwords.save(credential: PasswordCredential(server: "api.example.com", username: "alice", password: "a\nb")) }
 _ = expectError { try passwords.delete(server: "api.example.com", username: "") }
 
+_ = expectError {
+    _ = try HardwareKeyStoreCompanion.shared.forCurrentPlatform(serviceName: "", accountName: "account")
+}
+let keys = try HardwareKeyStoreCompanion.shared.forCurrentPlatform(serviceName: "swift-verification", accountName: "account")
+_ = expectError { _ = try keys.info(alias: "") }
+_ = expectError { _ = try keys.sign(alias: "\n", data: KotlinByteArray(size: 1)) }
+_ = expectError { _ = try keys.generate(alias: " ", spec: HardwareKeySpec(allowSoftwareKeys: true)) }
+
 let unavailable = ConsumerKt.unavailableForSwift()
 for operation in [
     { _ = try unavailable.read(key: "key") },

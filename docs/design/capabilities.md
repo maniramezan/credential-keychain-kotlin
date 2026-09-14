@@ -158,7 +158,9 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
 2. `PasswordStore` — smallest surface, reuses existing backends. **Implemented.** Passwords
    exclude CR/LF and are capped at 2,560 UTF-8 bytes on every platform, so credentials stay
    portable and `secret-tool`/`dump-keychain` output parsing stays unambiguous.
-3. `HardwareKeyStore` — Android and Apple native; `Unsupported` on desktop JVM.
+3. `HardwareKeyStore` — Android and Apple native; `Unsupported` on desktop JVM. **Implemented.**
+   `sign` returns `null` for a missing alias, matching `read`/`find`; `generate` replaces an
+   existing key; Android needs no `Context`.
 4. `CertificateStore` — the Linux size limit and macOS passphrase handling need care.
 5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness.
 

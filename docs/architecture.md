@@ -52,6 +52,17 @@ attempt to discover an Android context.
   - Windows uses Credential Manager generic credentials through a compiled C# shim for
     `CredWriteW`/`CredReadW`/`CredEnumerateW`/`CredDeleteW`. Target names hash the namespace,
     server, and username; the password is a UTF-8 blob.
+- `HardwareKeyStore` creates ECDSA P-256 keys; `ValidatingHardwareKeyStore` validates aliases.
+  - Android uses Keystore aliases `com.maniramezan.credentialkeychain.key.<sha256(namespace)>.<sha256(alias)>`,
+    requests StrongBox on API 28+ with a TEE fallback, reads the level from `KeyInfo`, and deletes
+    software-only keys unless `allowSoftwareKeys` is set. It needs no `Context`.
+  - Apple tags private keys with the namespace and labels them with the alias. Generation tries
+    the Secure Enclave (data-protection keychain, `kSecAccessControlPrivateKeyUsage`) and only
+    then, if allowed, a software key. Lookups search the data-protection keychain and then the
+    file-based keychain, because unsigned macOS processes cannot use the former. Public keys are
+    exported as uncompressed points and wrapped in a P-256 SubjectPublicKeyInfo.
+  - Desktop JVM returns an unsupported store: there is no command-line path to the Secure
+    Enclave or a TPM.
 
 Identifiers isolate entries; they are not an authorization boundary. DPAPI protects data
 for the current Windows user, Secret Service access depends on that user's desktop session,
