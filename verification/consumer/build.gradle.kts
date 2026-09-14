@@ -1,8 +1,10 @@
+import java.util.Properties
+
 plugins {
     kotlin("multiplatform") version "2.4.20"
     id("com.android.kotlin.multiplatform.library") version "9.4.0"
 }
-val releaseProperties = java.util.Properties().apply {
+val releaseProperties = Properties().apply {
     rootDir.resolve("../../gradle.properties").inputStream().use { load(it) }
 }
 repositories {
