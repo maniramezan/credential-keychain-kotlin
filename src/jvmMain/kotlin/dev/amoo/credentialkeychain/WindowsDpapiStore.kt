@@ -73,7 +73,7 @@ internal class WindowsDpapiStore(
             } catch { exit 1 }
 
         """.trimIndent() + "\n"
-        val result = runner.run(listOf(requirePowerShell().absolutePath, "-NoProfile", "-NonInteractive", "-Command", "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new(); & ([ScriptBlock]::Create([Console]::In.ReadToEnd()))"), input)
+        val result = runner.run(listOf(requirePowerShell().absolutePath, "-NoProfile", "-NonInteractive", "-Command", "\$reader = [System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new(\$false)); & ([ScriptBlock]::Create(\$reader.ReadToEnd()))"), input)
         if (result.exitCode != 0) throw KeychainUnavailableException("Windows DPAPI operation failed")
         return result
     }
