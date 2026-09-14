@@ -28,6 +28,13 @@ internal actual fun platformPasswordStore(
     }
 }
 
+/** Desktop JVM has no command-line path to the Secure Enclave or a TPM. */
+internal actual fun platformHardwareKeyStore(
+    serviceName: String,
+    accountName: String,
+    options: KeychainOptions,
+): HardwareKeyStore = UnsupportedHardwareKeyStore("desktop JVM has no secure hardware key backend")
+
 internal enum class DesktopOs { MacOS, Linux, Windows, Other }
 
 internal fun desktopOs(osName: String = System.getProperty("os.name").orEmpty()): DesktopOs =

@@ -79,6 +79,11 @@ The shared credential storage interface, platform factories, options, and failur
 - [com.maniramezan.credentialkeychain.PasswordStore] and
   [com.maniramezan.credentialkeychain.PasswordCredential] — username/password storage per server,
   with the same factories (and the same Android `Context`-taking overload).
+- [com.maniramezan.credentialkeychain.HardwareKeyStore],
+  [com.maniramezan.credentialkeychain.HardwareKeySpec],
+  [com.maniramezan.credentialkeychain.HardwareKeyInfo], and
+  [com.maniramezan.credentialkeychain.SecurityLevel] — non-exportable ECDSA P-256 signing keys in
+  StrongBox, the Android TEE, or the Apple Secure Enclave (no `Context` needed on Android).
 - [com.maniramezan.credentialkeychain.KeychainOptions] — Apple accessibility and desktop command timeout.
 - [com.maniramezan.credentialkeychain.KeychainUnavailableException] — thrown for every
   unavailable-backend or operational failure, never for "key not found".

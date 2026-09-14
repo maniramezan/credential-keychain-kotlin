@@ -172,7 +172,67 @@ internal fun secItemDeleteAll(query: CFMutableDictionaryRef) {
     throw secFailure(Reason.Failed, "Apple Keychain clear did not finish")
 }
 
-private fun CFStringRef.toKotlinString(): String =
+/** Runs [block] with a dictionary that retains its keys and values, then releases it. */
+internal fun <T> withRetainingDictionary(block: (CFMutableDictionaryRef) -> T): T {
+    val dictionary =
+        CFDictionaryCreateMutable(null, 0, kCFTypeDictionaryKeyCallBacks.ptr, kCFTypeDictionaryValueCallBacks.ptr)
+            ?: throw secFailure(Reason.Failed, "cannot allocate Keychain dictionary")
+    try {
+        return block(dictionary)
+    } finally {
+        CFRelease(dictionary)
+    }
+}
+
+/** Sets a string value; the dictionary must retain its values. */
+internal fun CFMutableDictionaryRef.setString(
+    key: CFStringRef?,
+    value: String,
+) {
+    val string =
+        CFStringCreateWithCString(null, value, kCFStringEncodingUTF8) ?: throw secFailure(Reason.Failed, "cannot allocate Keychain string")
+    CFDictionarySetValue(this, key, string)
+    CFRelease(string)
+}
+
+/** Sets a data value; the dictionary must retain its values. */
+internal fun CFMutableDictionaryRef.setData(
+    key: CFStringRef?,
+    value: ByteArray,
+) = withAnyCFData(value) { CFDictionarySetValue(this, key, it) }
+
+/** Sets an integer value; the dictionary must retain its values. */
+internal fun CFMutableDictionaryRef.setInt(
+    key: CFStringRef?,
+    value: Int,
+) = memScoped {
+    val number = alloc<IntVar>()
+    number.value = value
+    val cfNumber = CFNumberCreate(null, kCFNumberIntType, number.ptr) ?: throw secFailure(Reason.Failed, "cannot allocate Keychain number")
+    CFDictionarySetValue(this@setInt, key, cfNumber)
+    CFRelease(cfNumber)
+}
+
+/** Runs [block] with a CFData copy of [bytes], which may be empty. */
+internal fun <T> withAnyCFData(
+    bytes: ByteArray,
+    block: (CFDataRef) -> T,
+): T {
+    if (bytes.isNotEmpty()) return withCFData(bytes, block)
+    val data = CFDataCreate(kCFAllocatorDefault, null, 0) ?: throw secFailure(Reason.Failed, "cannot allocate Keychain data")
+    try {
+        return block(data)
+    } finally {
+        CFRelease(data)
+    }
+}
+
+internal fun CFDataRef.toByteArray(): ByteArray {
+    val size = CFDataGetLength(this).toInt()
+    return if (size == 0) ByteArray(0) else CFDataGetBytePtr(this)?.readBytes(size) ?: ByteArray(0)
+}
+
+internal fun CFStringRef.toKotlinString(): String =
     memScoped {
         val length = CFStringGetLength(this@toKotlinString)
         val capacity = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8).toLong() + 1

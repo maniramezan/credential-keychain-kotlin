@@ -2,10 +2,13 @@ package consumer
 
 import com.maniramezan.credentialkeychain.AppleAccessibility
 import com.maniramezan.credentialkeychain.CredentialKeychain
+import com.maniramezan.credentialkeychain.HardwareKeySpec
+import com.maniramezan.credentialkeychain.HardwareKeyStore
 import com.maniramezan.credentialkeychain.KeychainOptions
 import com.maniramezan.credentialkeychain.KeychainUnavailableException
 import com.maniramezan.credentialkeychain.PasswordCredential
 import com.maniramezan.credentialkeychain.PasswordStore
+import com.maniramezan.credentialkeychain.SecurityLevel
 import kotlin.time.Duration.Companion.seconds
 
 // Compile-only example. No real credentials are created by this publication check.
@@ -39,6 +42,15 @@ class AccountRepository(private val passwords: PasswordStore) {
 
 fun createAccountRepository(): AccountRepository =
     AccountRepository(PasswordStore.forCurrentPlatform("consumer", "account", KeychainOptions()))
+
+class DeviceBinding(private val keys: HardwareKeyStore) {
+    fun enroll(): ByteArray = keys.generate("device-binding", HardwareKeySpec(allowSoftwareKeys = false)).publicKeyDer
+    fun level(): SecurityLevel? = keys.info("device-binding")?.securityLevel
+    fun answer(challenge: ByteArray): ByteArray? = keys.sign("device-binding", challenge)
+    fun reset() = keys.clear()
+}
+
+fun createDeviceBinding(): DeviceBinding = DeviceBinding(HardwareKeyStore.forCurrentPlatform("consumer", "account"))
 
 fun shouldRetryLater(error: KeychainUnavailableException): Boolean =
     error.reason == KeychainUnavailableException.Reason.Locked

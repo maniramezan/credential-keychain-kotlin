@@ -154,6 +154,26 @@ passwords.clear() // removes every password for my-app/user-123, on every server
 
 `PasswordCredential.toString()` never includes the password.
 
+### Hardware-backed signing keys
+
+`HardwareKeyStore` generates non-exportable ECDSA P-256 keys inside secure hardware — StrongBox
+or the trusted execution environment on Android, the Secure Enclave on Apple platforms — and
+signs with them. Private keys never leave the hardware:
+
+```kotlin
+val keys = HardwareKeyStore.forCurrentPlatform(serviceName = "my-app", accountName = "user-123")
+
+val key: HardwareKeyInfo = keys.generate("device-binding") // replaces an existing key
+server.register(key.publicKeyDer, key.securityLevel) // X.509 SubjectPublicKeyInfo
+val signature: ByteArray? = keys.sign("device-binding", challenge) // DER ECDSA-SHA256; null if missing
+keys.delete("device-binding")
+```
+
+Generation fails with reason `Unsupported` when no secure hardware is available (emulators,
+simulators, unsigned macOS tools, desktop JVM). Pass `HardwareKeySpec(allowSoftwareKeys = true)`
+to accept software-backed keys where the platform offers them; `securityLevel` always reports
+what you actually got. Android needs no `Context` for this store.
+
 ### Example: storing an OAuth token per user account
 
 Namespacing by `accountName` keeps one secure entry set per signed-in user without
@@ -267,6 +287,12 @@ keychain.write("github-token", token)
   (security domain = service/account namespace) on Apple and macOS JVM, Secret Service items
   on Linux, and Credential Manager generic credentials on Windows. On macOS JVM, `findAll`
   lists usernames from `security dump-keychain`, which reads attributes but not passwords.
+- `HardwareKeyStore` keys are ECDSA P-256; signatures are DER-encoded ECDSA with SHA-256 and
+  verify with `SHA256withECDSA`. Android prefers StrongBox (API 28+) and falls back to the TEE;
+  before API 31 it reports hardware keys as `TrustedEnvironment` even when StrongBox-backed.
+  Apple Secure Enclave keys require a signed app (the data-protection keychain); unsigned macOS
+  processes can only use opt-in software keys in the login keychain. Desktop JVM always throws
+  `Unsupported`.
 - Android keys stay in Android Keystore; hardware backing depends on the device. Files
   contain authenticated ciphertext with the namespace and key bound as associated data.
   Ciphertext is excluded from backup because Keystore keys cannot be restored with it.
