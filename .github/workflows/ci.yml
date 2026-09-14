@@ -40,6 +40,7 @@ jobs:
         run: .\gradlew.bat --no-daemon jvmCoverageVerification --stacktrace
         env:
           CREDENTIAL_KEYCHAIN_INTEGRATION: '1'
+          CREDENTIAL_KEYCHAIN_DIAGNOSTICS: '1'
       - uses: actions/upload-artifact@v5
         if: always()
         with:
