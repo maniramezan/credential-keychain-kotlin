@@ -1,25 +1,71 @@
 package dev.amoo.credentialkeychain
 
 /**
- * Synchronous secure credential storage. Call from a worker thread: native stores may
- * block or prompt the user. Implementations never persist plaintext as a fallback.
+ * Synchronous secure credential storage, backed by the current platform's native secure
+ * storage (Android Keystore, Apple Keychain, macOS Keychain, Linux Secret Service, or
+ * Windows DPAPI). Call from a worker thread: native stores may block or prompt the user.
+ * Implementations never persist plaintext as a fallback — an unavailable or failing
+ * backend throws [KeychainUnavailableException] instead.
+ *
+ * Obtain an instance with [forCurrentPlatform]. On Android, use the `Context`-taking
+ * overload declared in the `dev.amoo.credentialkeychain` Android package instead.
+ *
+ * ```kotlin
+ * val keychain = CredentialKeychain.forCurrentPlatform(serviceName = "my-app", accountName = "user-123")
+ * keychain.write("api-key", "secret-token")
+ * val token: String? = keychain.read("api-key")
+ * keychain.delete("api-key")
+ * ```
  */
 public interface CredentialKeychain {
-    /** Returns null only when the key is absent; storage failures throw. */
+    /**
+     * Reads the value stored under [key].
+     *
+     * @return the stored value, or `null` if no entry exists for [key].
+     * @throws KeychainUnavailableException if the backend is unavailable or the read fails.
+     * @throws IllegalArgumentException if [key] is blank or contains NUL, CR, or LF.
+     */
     public fun read(key: String): String?
 
-    /** Stores [value]. For compatibility, a blank value deletes the entry. */
+    /**
+     * Stores [value] under [key], replacing any existing entry. For compatibility with
+     * clearing a field by writing an empty string, a blank [value] deletes the entry
+     * instead of storing it; non-blank values preserve leading/trailing whitespace.
+     *
+     * @throws KeychainUnavailableException if the backend is unavailable or the write fails.
+     * @throws IllegalArgumentException if [key] is blank, [key] contains NUL/CR/LF, or
+     *   [value] contains NUL.
+     */
     public fun write(key: String, value: String): Unit
 
-    /** Deletes an entry. An absent entry is not an error; storage failures throw. */
+    /**
+     * Deletes the entry stored under [key]. Deleting a [key] that has no entry succeeds
+     * silently as long as the backend itself is available.
+     *
+     * @throws KeychainUnavailableException if the backend is unavailable or the delete fails.
+     * @throws IllegalArgumentException if [key] is blank or contains NUL, CR, or LF.
+     */
     public fun delete(key: String): Unit
 
     /** Platform-specific factories for creating an application-scoped store. */
     public companion object {
         /**
-         * Creates a store isolated by both service and account.
-         * Android callers must use the Context-taking overload in androidMain.
-         * Web has no OS keychain and all operations throw [KeychainUnavailableException].
+         * Creates a store isolated by both [serviceName] and [accountName] — two calls
+         * with different values for either parameter address disjoint sets of entries,
+         * so one process can keep separate stores per app, environment, or signed-in user.
+         *
+         * Android callers must use the `Context`-taking overload declared alongside
+         * `AndroidKeychain` instead; this overload always returns a store that throws
+         * [KeychainUnavailableException] on Android. Web targets (`js`, `wasmJs`) have no
+         * OS keychain, so every operation on the returned store also throws
+         * [KeychainUnavailableException].
+         *
+         * @param serviceName identifies the calling application or integration; must be
+         *   nonblank and free of NUL/CR/LF.
+         * @param accountName identifies the credential owner (for example, a signed-in
+         *   user id); defaults to [serviceName]. Same validity rules as [serviceName].
+         * @throws IllegalArgumentException if [serviceName] or [accountName] is blank or
+         *   contains NUL, CR, or LF.
          */
         public fun forCurrentPlatform(serviceName: String, accountName: String = serviceName): CredentialKeychain {
             validateIdentifier(serviceName)
@@ -29,7 +75,15 @@ public interface CredentialKeychain {
     }
 }
 
-/** Secure persistence failed or is unavailable. Error messages never include credentials. */
+/**
+ * Secure persistence failed or is unavailable for the current platform, session, or
+ * environment (for example: a web target, a headless Linux session with no Secret
+ * Service, or an Android call made without a `Context`). Error messages never include
+ * credentials — only the platform/reason string passed to the constructor.
+ *
+ * This is distinct from a `null` read result: `null` means the key is genuinely absent,
+ * while this exception means the backend itself could not be reached.
+ */
 public class KeychainUnavailableException(platform: String) :
     IllegalStateException("Secure credential storage is not available: $platform.")
 

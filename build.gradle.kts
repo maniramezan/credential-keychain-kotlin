@@ -97,10 +97,10 @@ dokka {
     dokkaPublications.html {
         failOnWarning.set(true)
         suppressInheritedMembers.set(true)
-        includes.from("docs/module.md")
     }
     dokkaSourceSets.configureEach {
         reportUndocumented.set(true)
+        includes.from("docs/module.md")
         sourceLink {
             localDirectory.set(file("src"))
             remoteUrl.set(uri("https://github.com/maniramezan/credential-keychain-kotlin/tree/main/src"))
