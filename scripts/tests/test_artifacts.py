@@ -20,7 +20,7 @@ class ArtifactValidationTest(unittest.TestCase):
 
     def directory(self, suffix=""):
         name = artifacts.NAME + ("-" + suffix if suffix else "")
-        return self.root / "dev/amoo" / name / self.version, f"{name}-{self.version}"
+        return self.root / "com/maniramezan" / name / self.version, f"{name}-{self.version}"
 
     def create_repository(self):
         root_variants = []
@@ -30,7 +30,7 @@ class ArtifactValidationTest(unittest.TestCase):
             name = artifacts.NAME + ("-" + target if target else "")
             (directory / f"{base}.{extension}").write_bytes(b"binary")
             (directory / f"{base}.pom").write_text(f'''<project xmlns="http://maven.apache.org/POM/4.0.0">
-                <groupId>dev.amoo</groupId><artifactId>{name}</artifactId><version>{self.version}</version>
+                <groupId>com.maniramezan</groupId><artifactId>{name}</artifactId><version>{self.version}</version>
                 <name>Keychain</name><description>Credentials</description><url>https://example.test</url>
                 <licenses><license><name>MIT</name></license></licenses>
                 <developers><developer><id>maintainer</id></developer></developers>
@@ -38,15 +38,22 @@ class ArtifactValidationTest(unittest.TestCase):
             for classifier, entry in (("sources", "Credentials.kt"), ("javadoc", "index.html")):
                 with zipfile.ZipFile(directory / f"{base}-{classifier}.jar", "w") as archive:
                     archive.writestr(entry, "test content")
+            if target == "jvm":
+                self.write_classes(directory / f"{base}.jar", artifacts.JVM_CLASS_MAJOR)
             (directory / f"{base}.module").write_text(json.dumps({"variants": [{"files": [{"url": f"{base}.{extension}"}]}]}))
             if target:
-                root_variants.append({"available-at": {"group": "dev.amoo", "module": name, "version": self.version,
+                root_variants.append({"available-at": {"group": "com.maniramezan", "module": name, "version": self.version,
                     "url": f"../../{name}/{self.version}/{base}.module"}})
         directory, base = self.directory()
         (directory / f"{base}.module").write_text(json.dumps({"variants": root_variants}))
 
+    @staticmethod
+    def write_classes(path, major):
+        with zipfile.ZipFile(path, "w") as jar:
+            jar.writestr("Credentials.class", b"\xca\xfe\xba\xbe\x00\x00" + major.to_bytes(2, "big"))
+
     def test_complete_unsigned_repository(self):
-        self.assertEqual(17, artifacts.verify(self.root, self.version))
+        self.assertEqual(11, artifacts.verify(self.root, self.version))
 
     def test_missing_platform_binary_fails(self):
         directory, base = self.directory("iosarm64")
@@ -78,6 +85,12 @@ class ArtifactValidationTest(unittest.TestCase):
         directory, base = self.directory("jvm")
         (directory / f"{base}.module").write_text(json.dumps({"variants": [{"files": [{"url": "missing.jar"}]}]}))
         with self.assertRaisesRegex(ValueError, "Broken metadata file reference"):
+            artifacts.verify(self.root, self.version)
+
+    def test_newer_jvm_bytecode_is_rejected(self):
+        directory, base = self.directory("jvm")
+        self.write_classes(directory / f"{base}.jar", 21 + 44)
+        with self.assertRaisesRegex(ValueError, "must target Java 17"):
             artifacts.verify(self.root, self.version)
 
     def test_wrong_pom_version_is_rejected(self):

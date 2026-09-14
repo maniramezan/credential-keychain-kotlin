@@ -9,14 +9,16 @@ import zipfile
 
 NAME = "credential-keychain-kotlin"
 PLATFORMS = {
-    "": "jar", "jvm": "jar", "android": "aar", "js": "klib", "wasm-js": "klib",
+    "": "jar", "jvm": "jar", "android": "aar",
     **{target: "klib" for target in (
-        "iosarm64", "iossimulatorarm64", "iosx64", "macosarm64", "macosx64",
-        "tvosarm64", "tvossimulatorarm64", "tvosx64", "watchosarm64",
-        "watchosdevicearm64", "watchossimulatorarm64", "watchosx64",
+        "iosarm64", "iossimulatorarm64", "macosarm64",
+        "tvosarm64", "tvossimulatorarm64", "watchosarm64",
+        "watchosdevicearm64", "watchossimulatorarm64",
     )},
 }
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
+JVM_VERSION = 17
+JVM_CLASS_MAJOR = JVM_VERSION + 44
 
 
 def version_from_properties(path=Path("gradle.properties")):
@@ -34,7 +36,7 @@ def verify(repository, version, signed=False):
     expected = {NAME + ("-" + target if target else "") for target in PLATFORMS}
     for target, extension in PLATFORMS.items():
         artifact = NAME + ("-" + target if target else "")
-        directory = repository / "dev/amoo" / artifact / version
+        directory = repository / "com/maniramezan" / artifact / version
         base = f"{artifact}-{version}"
         paths = [directory / (base + suffix) for suffix in
                  (f".{extension}", ".pom", ".module", "-sources.jar", "-javadoc.jar")]
@@ -45,7 +47,7 @@ def verify(repository, version, signed=False):
             if signed and (not signature.is_file() or signature.stat().st_size == 0):
                 raise ValueError(f"Missing signature: {path}")
         pom = ET.parse(directory / (base + ".pom")).getroot()
-        for field, value in (("groupId", "dev.amoo"), ("artifactId", artifact), ("version", version)):
+        for field, value in (("groupId", "com.maniramezan"), ("artifactId", artifact), ("version", version)):
             if pom.findtext("m:" + field, namespaces=NS) != value:
                 raise ValueError(f"Incorrect POM {field}: {artifact}")
         for field in ("name", "description", "url", "licenses/license/name", "developers/developer/id", "scm/connection"):
@@ -66,11 +68,17 @@ def verify(repository, version, signed=False):
                     raise ValueError(f"Broken metadata file reference: {artifact}/{item['url']}")
             available = variant.get("available-at")
             if available:
-                if available["group"] != "dev.amoo" or available["version"] != version:
+                if available["group"] != "com.maniramezan" or available["version"] != version:
                     raise ValueError(f"Unexpected variant coordinates: {artifact}")
                 file = (directory / available["url"]).resolve()
                 if not file.is_relative_to(repository) or not file.is_file():
                     raise ValueError(f"Broken variant reference: {artifact}")
+        if target == "jvm":
+            # Kotlin does not publish org.gradle.jvm.version, so inspect the class file versions.
+            with zipfile.ZipFile(directory / (base + ".jar")) as jar:
+                majors = {int.from_bytes(jar.read(name)[6:8], "big") for name in jar.namelist() if name.endswith(".class")}
+            if not majors or max(majors) > JVM_CLASS_MAJOR:
+                raise ValueError(f"JVM classes must target Java {JVM_VERSION}: found class versions {sorted(majors)}")
         if not target:
             actual = {v["available-at"]["module"] for v in metadata.get("variants", []) if "available-at" in v}
             if actual != expected - {NAME}:

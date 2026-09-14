@@ -1,22 +1,19 @@
 # Module credential-keychain-kotlin
 
 Secure credential storage for Kotlin Multiplatform applications. One
-[`CredentialKeychain`](https://maniramezan.github.io/credential-keychain-kotlin/-credential%20-keychain%20-kotlin/dev.amoo.credentialkeychain/-credential-keychain/index.html)
-interface — `read`, `write`, `delete` — backed by each platform's native secure storage:
+[com.maniramezan.credentialkeychain.CredentialKeychain] interface — `read`, `write`, `delete`,
+`clear` — backed by each platform's native secure storage:
 
 - **Android** — Android Keystore, AES-256-GCM, ciphertext in an app-private,
   non-backed-up file.
-- **iOS, macOS, tvOS, watchOS** — the native Apple Security framework (Keychain),
-  `WhenUnlockedThisDeviceOnly`, not iCloud-synchronized.
-- **macOS desktop JVM** — the system Keychain through `/usr/bin/security`.
+- **iOS, tvOS, watchOS** — the native Apple Keychain, device-only and never
+  iCloud-synchronized, readable according to [com.maniramezan.credentialkeychain.AppleAccessibility].
+- **macOS (Kotlin/Native)** — the file-based login keychain through the Security
+  framework. macOS ignores the accessibility setting for this keychain.
+- **macOS desktop JVM** — the login keychain through `/usr/bin/security`.
 - **Linux desktop JVM** — Secret Service (for example GNOME Keyring) through
   `secret-tool`.
 - **Windows desktop JVM** — current-user DPAPI through Windows PowerShell.
-- **Browser / Node.js (`js`, `wasmJs`)** — the API compiles for dependency
-  compatibility only; every storage call throws
-  [`KeychainUnavailableException`](https://maniramezan.github.io/credential-keychain-kotlin/-credential%20-keychain%20-kotlin/dev.amoo.credentialkeychain/-keychain-unavailable-exception/index.html).
-  There is no localStorage, IndexedDB, or in-memory substitute — the library never
-  invents a fallback that looks like durable storage but isn't.
 
 No platform falls back to plaintext persistence: an unavailable or failing backend
 always throws rather than silently writing to a less secure location.
@@ -24,62 +21,49 @@ always throws rather than silently writing to a less secure location.
 ## Quick start
 
 ```kotlin
-import dev.amoo.credentialkeychain.CredentialKeychain
+import com.maniramezan.credentialkeychain.CredentialKeychain
 
 val credentials = CredentialKeychain.forCurrentPlatform("my-app", "user-123")
 credentials.write("api-token", "secret")
 val token = credentials.read("api-token") // null only if absent
 credentials.delete("api-token")
+credentials.clear() // removes every entry for my-app/user-123
 ```
 
-On Android, import `dev.amoo.credentialkeychain.forCurrentPlatform` and use the overload
-that takes `context = applicationContext` — the zero-`Context` overload on Android always
-returns a store that throws `KeychainUnavailableException`, by design, so shared code
-never silently gets an unusable store. Inject the resulting `CredentialKeychain` into
-shared application code (a repository, a `ViewModel`, your DI graph) rather than calling
-`forCurrentPlatform` at every call site.
+On Android, import `com.maniramezan.credentialkeychain.forCurrentPlatform` and use the overload
+that takes `context = applicationContext` — the `Context`-free overload on Android always
+returns a store that throws `KeychainUnavailableException`, by design. Inject the resulting
+`CredentialKeychain` into shared code (a repository, a `ViewModel`, your DI graph) rather
+than calling `forCurrentPlatform` at every call site.
 
-Operations are synchronous and may block or prompt the user (Keychain access dialogs,
-`secret-tool`/PowerShell subprocess round-trips): call from a worker thread or a
-background coroutine dispatcher, never the UI thread.
+Operations are synchronous and may block or prompt the user: call them from a worker
+thread or a background coroutine dispatcher, never the UI thread.
 
 ## Semantics worth knowing before you integrate
 
-- `null` from `read` means the entry is absent. It is never used to signal failure —
-  operational failures and unavailable backends always throw `KeychainUnavailableException`.
-- A blank `write` (`""` or all-whitespace) deletes the entry, matching the common pattern
-  of clearing a form field by writing an empty string. Non-blank values preserve
-  whitespace exactly.
-- Deleting a key that has no entry succeeds as long as the backend is available — it is
-  not treated as an error.
-- Identifiers (`serviceName`, `accountName`, and the `key` passed to each operation) must
-  be nonblank and must not contain NUL, CR, or LF. Values must not contain NUL; most
-  backends accept multiline values, but macOS JVM's interactive `security` backend
-  additionally rejects CR/LF in values.
-- Entries are namespaced by **both** `serviceName` and `accountName` — different
-  service/account pairs never collide, so one process can safely keep separate stores per
-  app, environment, or signed-in user (see the multi-account example in the
-  [README](https://github.com/maniramezan/credential-keychain-kotlin#example-storing-an-oauth-token-per-user-account)).
+- `null` from `read` means the entry is absent. Failures always throw
+  `KeychainUnavailableException`, whose `reason` is `Unsupported`, `Locked`, `Corrupted`,
+  or `Failed`.
+- `write` stores values exactly, including surrounding whitespace. Blank values are
+  rejected with `IllegalArgumentException`; call `delete` to remove an entry.
+- Deleting a missing key, or clearing an empty store, succeeds when the backend is available.
+- Identifiers (`serviceName`, `accountName`, and each `key`) must be nonblank and must not
+  contain NUL, CR, or LF. Values must not contain NUL; macOS JVM additionally rejects CR/LF.
+- Entries are namespaced by **both** `serviceName` and `accountName`, so one process can keep
+  separate stores per app, environment, or signed-in user.
 
 ## Full usage and platform guide
 
-This module page covers the API shape. For installation, per-OS runtime requirements
-(signing, `secret-tool`, PowerShell), worked examples (Compose Multiplatform, Swift/Apple
-interop, multi-account token storage), and build/verification instructions, see the
-[usage and platform guide](https://github.com/maniramezan/credential-keychain-kotlin#readme).
-See the [release guide](https://github.com/maniramezan/credential-keychain-kotlin/blob/main/docs/releasing.md)
-for verification, coverage, and publishing.
+See the [usage and platform guide](https://github.com/maniramezan/credential-keychain-kotlin#readme)
+for installation, per-OS runtime requirements, worked examples, and the security model.
 
-# Package dev.amoo.credentialkeychain
+# Package com.maniramezan.credentialkeychain
 
-The shared credential storage interface, platform factories, and availability exception.
+The shared credential storage interface, platform factories, options, and failure type.
 
-- [`CredentialKeychain`](https://maniramezan.github.io/credential-keychain-kotlin/-credential%20-keychain%20-kotlin/dev.amoo.credentialkeychain/-credential-keychain/index.html) —
-  the `read`/`write`/`delete` interface, plus the `forCurrentPlatform` factory on its
-  companion object (and the Android `Context`-taking overload of the same name, declared
-  in this package for Android targets).
-- [`KeychainUnavailableException`](https://maniramezan.github.io/credential-keychain-kotlin/-credential%20-keychain%20-kotlin/dev.amoo.credentialkeychain/-keychain-unavailable-exception/index.html) —
-  thrown for any unavailable-backend or operational-failure case; never thrown to mean
-  "key not found" (that's a `null` return from `read`).
-
-No platform falls back to plaintext persistence.
+- [com.maniramezan.credentialkeychain.CredentialKeychain] — the storage interface plus the
+  `forCurrentPlatform` factories on its companion object (Android adds a `Context`-taking
+  overload of the same name in this package).
+- [com.maniramezan.credentialkeychain.KeychainOptions] — Apple accessibility and desktop command timeout.
+- [com.maniramezan.credentialkeychain.KeychainUnavailableException] — thrown for every
+  unavailable-backend or operational failure, never for "key not found".
