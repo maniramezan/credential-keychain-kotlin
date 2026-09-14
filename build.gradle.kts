@@ -12,7 +12,7 @@ plugins {
     jacoco
 }
 
-group = "dev.amoo"
+group = "com.maniramezan"
 version = providers.gradleProperty("VERSION_NAME").get()
 repositories {
     google()
@@ -20,7 +20,7 @@ repositories {
 }
 
 ktlint {
-    version.set("1.5.0")
+    version.set("1.8.0")
     kotlinScriptAdditionalPaths {
         include(fileTree("verification") { include("**/*.kts") })
     }
@@ -35,10 +35,15 @@ kotlin {
     abiValidation()
     jvmToolchain(21)
     jvm {
+        // Built with JDK 21, but published bytecode and JDK API usage target Java 17 consumers.
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            freeCompilerArgs.add("-Xjdk-release=17")
+        }
         testRuns["test"].executionTask.configure { useJUnitPlatform() }
     }
     android {
-        namespace = "dev.amoo.credentialkeychain"
+        namespace = "com.maniramezan.credentialkeychain"
         compileSdk = 36
         minSdk = 23
         compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
@@ -49,24 +54,12 @@ kotlin {
     }
     iosArm64()
     iosSimulatorArm64()
-    iosX64()
     macosArm64()
-    macosX64()
     tvosArm64()
     tvosSimulatorArm64()
-    tvosX64()
     watchosArm64()
     watchosDeviceArm64()
     watchosSimulatorArm64()
-    watchosX64()
-    js(IR) {
-        browser()
-        nodejs()
-    }
-    wasmJs {
-        browser()
-        nodejs()
-    }
     sourceSets {
         commonTest.dependencies { implementation(kotlin("test")) }
         getByName("androidDeviceTest").dependencies {
@@ -129,7 +122,7 @@ dokka {
     }
 }
 
-jacoco { toolVersion = "0.8.14" }
+jacoco { toolVersion = "0.8.15" }
 val jvmTests = tasks.named<Test>("jvmTest")
 val jvmClasses =
     kotlin.targets
@@ -139,7 +132,7 @@ val jvmClasses =
         .output.classesDirs
 
 // This report covers commonMain as compiled for JVM and jvmMain. It makes no
-// claim about Android, native Apple, or web execution coverage.
+// claim about Android or native Apple execution coverage.
 val jvmCoverageReport =
     tasks.register<JacocoReport>("jvmCoverageReport") {
         group = "verification"
