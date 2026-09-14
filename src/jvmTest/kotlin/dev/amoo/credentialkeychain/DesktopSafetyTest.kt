@@ -57,7 +57,7 @@ object CommandFixture {
                 repeat(200_000) { System.err.print('e') }
                 repeat(200_000) { print('o') }
             }
-            "echo" -> print(System.`in`.readBytes().toString(Charsets.UTF_8))
+            "echo" -> System.out.write(System.`in`.readBytes()).also { System.out.flush() }
             "sleep" -> Thread.sleep(60_000)
         }
     }
