@@ -14,7 +14,7 @@ internal class MacOSKeychainStore(
     override fun read(key: String): String? {
         val result = runSecurityCommand("find-generic-password", "-a", accountName, "-s", serviceName(key), "-w")
         return when {
-            result.exitCode == 0 -> result.stdout.removeTrailingLineBreaks()
+            result.exitCode == 0 -> result.stdout.removeTrailingLineBreaks().decodeSecurityOutput()
             result.isMissingEntry -> null
             else -> throw KeychainUnavailableException("macOS security exited with ${result.exitCode}")
         }
@@ -46,6 +46,31 @@ internal class MacOSKeychainStore(
     }
 
     private fun serviceName(key: String): String = credentialNamespace(servicePrefix, key)
+
+    /**
+     * macOS 26 hex-encodes `security -w` output whenever the stored password contains
+     * non-ASCII bytes, instead of printing it raw as prior macOS versions did. Decode that
+     * form back to text; ASCII-only values round-trip through `security` unchanged and are
+     * returned as-is.
+     */
+    private fun String.decodeSecurityOutput(): String {
+        if (isEmpty() || length % 2 != 0 || any { Character.digit(it, 16) < 0 }) return this
+        val bytes = ByteArray(length / 2) { i ->
+            ((Character.digit(this[i * 2], 16) shl 4) or Character.digit(this[i * 2 + 1], 16)).toByte()
+        }
+        return bytes.decodeStrictUtf8() ?: this
+    }
+
+    private fun ByteArray.decodeStrictUtf8(): String? {
+        val decoder = Charsets.UTF_8.newDecoder()
+            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+        return try {
+            decoder.decode(java.nio.ByteBuffer.wrap(this)).toString()
+        } catch (_: java.nio.charset.CharacterCodingException) {
+            null
+        }
+    }
 
     /** Quotes a value for the `security -i` interactive command parser. */
     private fun quote(value: String): String {
