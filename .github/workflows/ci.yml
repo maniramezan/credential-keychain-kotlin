@@ -20,7 +20,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v4
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew ktlintCheck --stacktrace
       - uses: actions/upload-artifact@v5
         if: always()
@@ -42,7 +42,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v4
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - name: Install Linux Secret Service
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libsecret-tools gnome-keyring dbus-x11
@@ -78,7 +78,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v4
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - name: Cache Kotlin/Native toolchain
         uses: actions/cache@v4
         with:
@@ -119,7 +119,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - uses: android-actions/setup-android@v4
       - name: Enable KVM
         run: |
