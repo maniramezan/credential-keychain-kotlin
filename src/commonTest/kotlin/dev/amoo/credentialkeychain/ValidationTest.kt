@@ -21,11 +21,24 @@ class ValidationTest {
 
     @Test fun validReadsAndDeletesReachTheDelegateAndPreserveFailures() {
         val calls = mutableListOf<String>()
-        val keychain = ValidatingKeychain(object : CredentialKeychain {
-            override fun read(key: String): String { calls += "read:$key"; return "value" }
-            override fun write(key: String, value: String) = Unit
-            override fun delete(key: String) { calls += "delete:$key" }
-        })
+        val keychain =
+            ValidatingKeychain(
+                object : CredentialKeychain {
+                    override fun read(key: String): String {
+                        calls += "read:$key"
+                        return "value"
+                    }
+
+                    override fun write(
+                        key: String,
+                        value: String,
+                    ) = Unit
+
+                    override fun delete(key: String) {
+                        calls += "delete:$key"
+                    }
+                },
+            )
         assertEquals("value", keychain.read("key"))
         keychain.delete("key")
         assertEquals(listOf("read:key", "delete:key"), calls)
@@ -36,11 +49,23 @@ class ValidationTest {
 
     @Test fun blankWritesDeleteAndValuesAreNotTrimmed() {
         val calls = mutableListOf<String>()
-        val keychain = ValidatingKeychain(object : CredentialKeychain {
-            override fun read(key: String): String? = null
-            override fun write(key: String, value: String) { calls += value }
-            override fun delete(key: String) { calls += "delete:$key" }
-        })
+        val keychain =
+            ValidatingKeychain(
+                object : CredentialKeychain {
+                    override fun read(key: String): String? = null
+
+                    override fun write(
+                        key: String,
+                        value: String,
+                    ) {
+                        calls += value
+                    }
+
+                    override fun delete(key: String) {
+                        calls += "delete:$key"
+                    }
+                },
+            )
         keychain.write("key", "  secret  ")
         keychain.write("key", " \n")
         assertEquals(listOf("  secret  ", "delete:key"), calls)

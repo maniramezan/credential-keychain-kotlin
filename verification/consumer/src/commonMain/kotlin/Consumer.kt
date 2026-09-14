@@ -14,3 +14,10 @@ fun createRepository(): CredentialRepository =
     CredentialRepository(CredentialKeychain.forCurrentPlatform("consumer", "account"))
 
 fun unavailableMessage(error: KeychainUnavailableException): String? = error.message
+
+// A deterministic failure fixture verifies Swift error bridging without OS storage access.
+fun unavailableForSwift(): CredentialKeychain = object : CredentialKeychain {
+    override fun read(key: String): String? = throw KeychainUnavailableException("Swift verification")
+    override fun write(key: String, value: String): Unit = throw KeychainUnavailableException("Swift verification")
+    override fun delete(key: String): Unit = throw KeychainUnavailableException("Swift verification")
+}

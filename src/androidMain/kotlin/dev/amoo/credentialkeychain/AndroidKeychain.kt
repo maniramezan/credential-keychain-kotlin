@@ -47,28 +47,42 @@ public fun CredentialKeychain.Companion.forCurrentPlatform(
     return ValidatingKeychain(AndroidKeychain(context.applicationContext, serviceName, accountName))
 }
 
-internal actual fun platformKeychain(serviceName: String, accountName: String): CredentialKeychain =
-    UnsupportedKeychainStore("Android requires the Context-taking forCurrentPlatform overload")
+internal actual fun platformKeychain(
+    serviceName: String,
+    accountName: String,
+): CredentialKeychain = UnsupportedKeychainStore("Android requires the Context-taking forCurrentPlatform overload")
 
-internal class AndroidKeychain(context: Context, service: String, account: String) : CredentialKeychain {
+internal class AndroidKeychain(
+    context: Context,
+    service: String,
+    account: String,
+) : CredentialKeychain {
     private val namespace = credentialNamespace(service, account)
     private val alias = "dev.amoo.credentialkeychain.${digest(namespace)}"
+
     // Keystore keys are not backed up; ciphertext must not be restored onto another device.
     private val directory = File(context.noBackupFilesDir, alias)
 
-    override fun read(key: String): String? = guarded {
-        val file = file(key)
-        if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return@guarded null
-        val bytes = file.openRead().use { it.readBytes() }
-        check(bytes.size >= 1 + 12 + 16 && bytes[0] == 1.toByte())
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, secretKey(create = false), GCMParameterSpec(128, bytes.copyOfRange(1, 13)))
-        cipher.updateAAD(credentialNamespace(namespace, key).toByteArray(Charsets.UTF_8))
-        cipher.doFinal(bytes.copyOfRange(13, bytes.size)).toString(Charsets.UTF_8)
-    }
+    override fun read(key: String): String? =
+        guarded {
+            val file = file(key)
+            if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return@guarded null
+            val bytes = file.openRead().use { it.readBytes() }
+            check(bytes.size >= 1 + 12 + 16 && bytes[0] == 1.toByte())
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, secretKey(create = false), GCMParameterSpec(128, bytes.copyOfRange(1, 13)))
+            cipher.updateAAD(credentialNamespace(namespace, key).toByteArray(Charsets.UTF_8))
+            cipher.doFinal(bytes.copyOfRange(13, bytes.size)).toString(Charsets.UTF_8)
+        }
 
-    override fun write(key: String, value: String) {
-        if (value.isBlank()) { delete(key); return }
+    override fun write(
+        key: String,
+        value: String,
+    ) {
+        if (value.isBlank()) {
+            delete(key)
+            return
+        }
         guarded {
             check(directory.isDirectory || directory.mkdirs())
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -88,12 +102,16 @@ internal class AndroidKeychain(context: Context, service: String, account: Strin
         }
     }
 
-    override fun delete(key: String) = guarded {
-        val file = file(key)
-        file.delete()
-        check(!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists() &&
-            !File(file.baseFile.path + ".new").exists())
-    }
+    override fun delete(key: String) =
+        guarded {
+            val file = file(key)
+            file.delete()
+            check(
+                !file.baseFile.exists() &&
+                    !File(file.baseFile.path + ".bak").exists() &&
+                    !File(file.baseFile.path + ".new").exists(),
+            )
+        }
 
     private fun file(key: String) = AtomicFile(File(directory, "${digest(key)}.bin"))
 
@@ -103,22 +121,36 @@ internal class AndroidKeychain(context: Context, service: String, account: Strin
         // A lost key invalidates the whole namespace. Do not silently create a new key
         // while unreadable ciphertext remains; callers must explicitly delete it first.
         check(create && directory.listFiles()?.isEmpty() == true)
-        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
-            init(KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setKeySize(256)
-                .build())
-        }.generateKey()
+        return KeyGenerator
+            .getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            .apply {
+                init(
+                    KeyGenParameterSpec
+                        .Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setKeySize(256)
+                        .build(),
+                )
+            }.generateKey()
     }
 
-    private fun <T> guarded(block: () -> T): T = synchronized(lock) {
-        try { block() } catch (_: Exception) { throw KeychainUnavailableException("Android Keystore operation failed") }
-    }
+    private fun <T> guarded(block: () -> T): T =
+        synchronized(lock) {
+            try {
+                block()
+            } catch (_: Exception) {
+                throw KeychainUnavailableException("Android Keystore operation failed")
+            }
+        }
 
     private companion object {
         val lock = Any()
-        fun digest(value: String): String = MessageDigest.getInstance("SHA-256")
-            .digest(value.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+
+        fun digest(value: String): String =
+            MessageDigest
+                .getInstance("SHA-256")
+                .digest(value.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
     }
 }

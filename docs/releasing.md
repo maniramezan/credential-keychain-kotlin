@@ -53,12 +53,13 @@ for namespace, token, and key requirements.
 Run from a macOS host with JDK 21, Android SDK 36, and compatible Xcode:
 
 ```sh
-./gradlew jvmCoverageVerification
+./gradlew ktlintCheck jvmCoverageVerification
 bash scripts/macos-keychain-tests.sh ./gradlew jvmTest macosArm64Test --rerun-tasks
 ./gradlew assemble jsNodeTest wasmJsNodeTest checkKotlinAbi dokkaGeneratePublicationHtml
 ./gradlew publishAllPublicationsToVerificationRepository
 python3 scripts/verify-artifacts.py build/verification-repository
 ./gradlew -p verification/consumer assemble -PverificationRepository="$PWD/build/verification-repository"
+bash scripts/swift-interop-tests.sh
 python3 -m unittest discover -s scripts/tests
 ```
 
@@ -77,6 +78,12 @@ from the generated filesystem repository and compiles for every declared target.
 
 ## Coverage and API stability
 
+- Run `./gradlew ktlintCheck` before submitting changes; use `./gradlew ktlintFormat`
+  to apply the repository's `.editorconfig`. CI runs lint as a required job.
+- Configure branch protection to require **Required checks**, which aggregates all
+  Verify jobs and rejects skipped/cancelled/failed jobs. See the
+  [architecture and target matrix](architecture.md) for exact platform evidence.
+
 - `jvmCoverageReport` produces HTML and XML under `build/reports/jacoco/`.
 - `jvmCoverageVerification` requires at least **85% line** and **70% branch** coverage
   across **commonMain compiled for JVM plus jvmMain**, including backend adapters.
@@ -84,7 +91,7 @@ from the generated filesystem repository and compiles for every declared target.
 - This percentage does not measure Android, Apple native, JS, or Wasm execution.
   Android emulator tests cover real encryption, tampering, ciphertext substitution,
   key loss, concurrency, atomic-backup recovery, and account isolation. Native Apple
-  tests run on macOS against an isolated Keychain. iOS/tvOS/watchOS are compiled in CI;
+  tests run on ARM and Intel macOS against an isolated Keychain. iOS/tvOS/watchOS are compiled in CI;
   their signing/access behavior still needs representative device validation.
 - `checkKotlinAbi` checks committed JVM and KLIB public API baselines in `api/`.
   Kotlin's current built-in validator does not include the new Android KMP plugin's

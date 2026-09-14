@@ -13,7 +13,9 @@ class DesktopSafetyTest {
             val files = keys.map(store::fileFor)
             assertEquals(keys.size, files.toSet().size)
             files.forEach { assertEquals(directory.canonicalFile, it.canonicalFile.parentFile) }
-        } finally { directory.deleteRecursively() }
+        } finally {
+            directory.deleteRecursively()
+        }
     }
 
     @Test fun missingToolsAreErrorsIncludingReadsAndDeletes() {
@@ -39,12 +41,19 @@ class DesktopSafetyTest {
         assertFailsWith<KeychainUnavailableException> { fixture("sleep", timeout = 1) }
     }
 
-    private fun fixture(mode: String, input: String? = null, timeout: Long = 10): CommandResult {
+    private fun fixture(
+        mode: String,
+        input: String? = null,
+        timeout: Long = 10,
+    ): CommandResult {
         val java = File(System.getProperty("java.home"), "bin/java").absolutePath
-        val classpath = listOf(
-            CommandFixture::class.java.protectionDomain.codeSource.location.toURI(),
-            Unit::class.java.protectionDomain.codeSource.location.toURI(),
-        ).joinToString(File.pathSeparator) { File(it).path }
+        val classpath =
+            listOf(
+                CommandFixture::class.java.protectionDomain.codeSource.location
+                    .toURI(),
+                Unit::class.java.protectionDomain.codeSource.location
+                    .toURI(),
+            ).joinToString(File.pathSeparator) { File(it).path }
         return runCommand(java, "-cp", classpath, CommandFixture::class.java.name, mode, stdin = input, timeoutSeconds = timeout)
     }
 }

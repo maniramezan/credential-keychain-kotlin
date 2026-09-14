@@ -5,7 +5,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 
 class CredentialKeychainTest {
-
     @Test
     fun forCurrentPlatformReturnsANonNullStore() {
         assertNotNull(CredentialKeychain.forCurrentPlatform("credential-keychain-test"))
@@ -19,5 +18,4 @@ class CredentialKeychainTest {
         assertFailsWith<KeychainUnavailableException> { store.write("key", "") }
         assertFailsWith<KeychainUnavailableException> { store.delete("key") }
     }
-
 }

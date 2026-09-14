@@ -1,19 +1,33 @@
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.KotlinMultiplatform
-import org.gradle.testing.jacoco.tasks.JacocoReport
 import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 plugins {
     kotlin("multiplatform") version "2.4.20"
     id("com.android.kotlin.multiplatform.library") version "9.4.0"
     id("org.jetbrains.dokka") version "2.2.0"
     id("com.vanniktech.maven.publish") version "0.37.0"
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
     jacoco
 }
 
 group = "dev.amoo"
 version = providers.gradleProperty("VERSION_NAME").get()
-repositories { google(); mavenCentral() }
+repositories {
+    google()
+    mavenCentral()
+}
+
+ktlint {
+    version.set("1.5.0")
+    kotlinScriptAdditionalPaths {
+        include(fileTree("verification") { include("**/*.kts") })
+    }
+    filter {
+        exclude("**/build/**", "**/.gradle/**", "**/.kotlin/**")
+    }
+}
 
 kotlin {
     explicitApi()
@@ -45,8 +59,14 @@ kotlin {
     watchosDeviceArm64()
     watchosSimulatorArm64()
     watchosX64()
-    js(IR) { browser(); nodejs() }
-    wasmJs { browser(); nodejs() }
+    js(IR) {
+        browser()
+        nodejs()
+    }
+    wasmJs {
+        browser()
+        nodejs()
+    }
     sourceSets {
         commonTest.dependencies { implementation(kotlin("test")) }
         getByName("androidDeviceTest").dependencies {
@@ -111,41 +131,59 @@ dokka {
 
 jacoco { toolVersion = "0.8.14" }
 val jvmTests = tasks.named<Test>("jvmTest")
-val jvmClasses = kotlin.targets.getByName("jvm").compilations.getByName("main").output.classesDirs
+val jvmClasses =
+    kotlin.targets
+        .getByName("jvm")
+        .compilations
+        .getByName("main")
+        .output.classesDirs
 
 // This report covers commonMain as compiled for JVM and jvmMain. It makes no
 // claim about Android, native Apple, or web execution coverage.
-val jvmCoverageReport by tasks.registering(JacocoReport::class) {
-    group = "verification"
-    description = "HTML and XML coverage for common/JVM production code."
-    dependsOn(jvmTests)
-    executionData(jvmTests.get())
-    classDirectories.setFrom(jvmClasses)
-    sourceDirectories.setFrom(files("src/commonMain/kotlin", "src/jvmMain/kotlin"))
-    reports {
-        html.required.set(true)
-        xml.required.set(true)
-    }
-}
-val jvmCoverageVerification by tasks.registering(JacocoCoverageVerification::class) {
-    group = "verification"
-    dependsOn(jvmCoverageReport)
-    executionData(jvmTests.get())
-    classDirectories.setFrom(jvmClasses)
-    sourceDirectories.setFrom(files("src/commonMain/kotlin", "src/jvmMain/kotlin"))
-    violationRules {
-        rule {
-            limit { counter = "LINE"; minimum = "0.85".toBigDecimal() }
-            limit { counter = "BRANCH"; minimum = "0.70".toBigDecimal() }
+val jvmCoverageReport =
+    tasks.register<JacocoReport>("jvmCoverageReport") {
+        group = "verification"
+        description = "HTML and XML coverage for common/JVM production code."
+        dependsOn(jvmTests)
+        executionData(jvmTests.get())
+        classDirectories.setFrom(jvmClasses)
+        sourceDirectories.setFrom(files("src/commonMain/kotlin", "src/jvmMain/kotlin"))
+        reports {
+            html.required.set(true)
+            xml.required.set(true)
         }
     }
-}
+val jvmCoverageVerification =
+    tasks.register<JacocoCoverageVerification>("jvmCoverageVerification") {
+        group = "verification"
+        dependsOn(jvmCoverageReport)
+        executionData(jvmTests.get())
+        classDirectories.setFrom(jvmClasses)
+        sourceDirectories.setFrom(files("src/commonMain/kotlin", "src/jvmMain/kotlin"))
+        violationRules {
+            rule {
+                limit {
+                    counter = "LINE"
+                    minimum = "0.85".toBigDecimal()
+                }
+                limit {
+                    counter = "BRANCH"
+                    minimum = "0.70".toBigDecimal()
+                }
+            }
+        }
+    }
 tasks.named("check") { dependsOn(jvmCoverageVerification) }
 
 // Generate a filesystem repository for artifact and consumer checks, without credentials.
 publishing.repositories {
     maven {
         name = "Verification"
-        url = layout.buildDirectory.dir("verification-repository").get().asFile.toURI()
+        url =
+            layout.buildDirectory
+                .dir("verification-repository")
+                .get()
+                .asFile
+                .toURI()
     }
 }
