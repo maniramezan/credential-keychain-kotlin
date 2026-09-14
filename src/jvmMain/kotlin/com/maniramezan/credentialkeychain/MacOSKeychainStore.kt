@@ -62,7 +62,12 @@ internal class MacOSKeychainStore(
 
     /** `security` exits with the low byte of the failing OSStatus. */
     private fun statusFailure(exitCode: Int): KeychainUnavailableException {
-        val reason = if (exitCode in LOCKED_EXIT_CODES) Reason.Locked else Reason.Failed
+        val reason =
+            when (exitCode) {
+                USER_CANCELED_EXIT_CODE -> Reason.Canceled
+                in LOCKED_EXIT_CODES -> Reason.Locked
+                else -> Reason.Failed
+            }
         return KeychainUnavailableException(reason, "macOS security exited with $exitCode")
     }
 
@@ -112,8 +117,11 @@ internal class MacOSKeychainStore(
         /** errSecItemNotFound (-25300). */
         const val ERR_SEC_ITEM_NOT_FOUND = 44
 
-        /** errSecInteractionNotAllowed (-25308), errSecAuthFailed (-25293), errSecUserCanceled (-128). */
-        val LOCKED_EXIT_CODES = setOf(36, 51, 128)
+        /** errSecInteractionNotAllowed (-25308), errSecAuthFailed (-25293). */
+        val LOCKED_EXIT_CODES = setOf(36, 51)
+
+        /** errSecUserCanceled (-128). */
+        const val USER_CANCELED_EXIT_CODE = 128
         const val SECURITY_TOOL_PATH = "/usr/bin/security"
     }
 }

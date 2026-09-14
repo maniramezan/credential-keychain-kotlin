@@ -145,7 +145,8 @@ internal class AppleKeychain(
         if (status == errSecSuccess) return
         val reason =
             when (status) {
-                errSecInteractionNotAllowed, errSecAuthFailed, errSecUserCanceled -> Reason.Locked
+                errSecUserCanceled -> Reason.Canceled
+                errSecInteractionNotAllowed, errSecAuthFailed -> Reason.Locked
                 errSecMissingEntitlement, errSecNotAvailable -> Reason.Unsupported
                 else -> Reason.Failed
             }

@@ -20,6 +20,18 @@ class ValidationTest {
         }
     }
 
+    @Test fun validationMessagesNameTheFieldButNeverTheValue() {
+        val blankService = assertFailsWith<IllegalArgumentException> { CredentialKeychain.forCurrentPlatform(" ", "account") }
+        assertEquals("serviceName must not be blank.", blankService.message)
+        val badAccount = assertFailsWith<IllegalArgumentException> { CredentialKeychain.forCurrentPlatform("service", "a\nb") }
+        assertEquals("accountName must not contain NUL or line breaks.", badAccount.message)
+        val keychain = ValidatingKeychain(RecordingKeychain())
+        assertEquals("key must not be blank.", assertFailsWith<IllegalArgumentException> { keychain.read("") }.message)
+        val badValue = assertFailsWith<IllegalArgumentException> { keychain.write("key", "top-secret\u0000") }
+        assertEquals("value must not contain NUL.", badValue.message)
+        assertFalse(badValue.message.orEmpty().contains("top-secret"))
+    }
+
     @Test fun validOperationsReachTheDelegateAndPreserveFailures() {
         val calls = RecordingKeychain()
         val keychain = ValidatingKeychain(calls)

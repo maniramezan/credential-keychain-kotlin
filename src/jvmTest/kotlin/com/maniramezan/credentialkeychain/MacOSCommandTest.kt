@@ -26,10 +26,10 @@ class MacOSCommandTest {
         assertEquals(Reason.Failed, error.reason)
     }
 
-    @Test fun lockedAndDeniedStatusesAreReportedAsLocked() {
-        for (exitCode in listOf(36, 51, 128)) {
+    @Test fun lockedDeniedAndCanceledStatusesMapToReasons() {
+        for ((exitCode, reason) in listOf(36 to Reason.Locked, 51 to Reason.Locked, 128 to Reason.Canceled)) {
             val error = assertFailsWith<KeychainUnavailableException> { store(CommandResult(exitCode, "", "")).read("key") }
-            assertEquals(Reason.Locked, error.reason)
+            assertEquals(reason, error.reason)
         }
     }
 

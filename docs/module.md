@@ -42,8 +42,8 @@ thread or a background coroutine dispatcher, never the UI thread.
 ## Semantics worth knowing before you integrate
 
 - `null` from `read` means the entry is absent. Failures always throw
-  `KeychainUnavailableException`, whose `reason` is `Unsupported`, `Locked`, `Corrupted`,
-  or `Failed`.
+  `KeychainUnavailableException`, whose `reason` is `Unsupported`, `Locked`, `Canceled`,
+  `AuthenticationInvalidated`, `Corrupted`, or `Failed`.
 - `write` stores values exactly, including surrounding whitespace. Blank values are
   rejected with `IllegalArgumentException`; call `delete` to remove an entry.
 - Deleting a missing key, or clearing an empty store, succeeds when the backend is available.
