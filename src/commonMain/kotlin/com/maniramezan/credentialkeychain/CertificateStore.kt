@@ -110,7 +110,9 @@ public interface CertificateStore {
          * JVM keeps identities in the macOS login keychain, the Windows current-user certificate
          * store, or Linux Secret Service. Android callers must use the `Context`-taking overload
          * instead; this overload returns a store that throws [KeychainUnavailableException] on
-         * Android. The Apple native backend is not available yet and throws with reason `Unsupported`.
+         * Android. Apple platforms store identities in the data-protection keychain, which needs an
+         * app with keychain entitlements (unsigned macOS processes get reason `Unsupported`) and
+         * macOS 15 or later on macOS. One identity can be stored under only one alias per keychain.
          *
          * @param serviceName identifies the calling application or integration; must be
          *   nonblank and free of NUL/CR/LF.
