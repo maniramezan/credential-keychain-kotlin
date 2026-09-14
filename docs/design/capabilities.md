@@ -165,8 +165,11 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
    - 4a — common API and desktop JVM backends (macOS, Linux, Windows). **Implemented.** The API
      is `importPkcs12`, `importCertificate`, `info` (`CertificateInfo` with the DER chain and a
      private-key flag), `aliases`, `delete`, and `clear`.
-   - 4b — Android Keystore and Apple Keychain identity backends.
-   - 4c — platform-native handles for stored identities (Android `PrivateKeyEntry`, JVM key
+   - 4b — Android Keystore identity backend. **Implemented.**
+   - 4c — Apple Keychain identity backend. Needs investigation first: `SecPKCS12Import` adds
+     identities to the macOS default keychain unless `kSecImportToMemoryOnly` is available
+     (macOS 15, iOS/tvOS 18, watchOS 11).
+   - 4d — platform-native handles for stored identities (Android `PrivateKeyEntry`, JVM key
      managers, Apple `SecIdentity`).
 5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness.
 

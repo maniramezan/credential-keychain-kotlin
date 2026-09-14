@@ -108,8 +108,9 @@ public interface CertificateStore {
         /**
          * Creates a certificate store isolated by both [serviceName] and [accountName]. Desktop
          * JVM keeps identities in the macOS login keychain, the Windows current-user certificate
-         * store, or Linux Secret Service. Android and Apple native backends are not available yet
-         * and throw [KeychainUnavailableException] with reason `Unsupported`.
+         * store, or Linux Secret Service. Android callers must use the `Context`-taking overload
+         * instead; this overload returns a store that throws [KeychainUnavailableException] on
+         * Android. The Apple native backend is not available yet and throws with reason `Unsupported`.
          *
          * @param serviceName identifies the calling application or integration; must be
          *   nonblank and free of NUL/CR/LF.
