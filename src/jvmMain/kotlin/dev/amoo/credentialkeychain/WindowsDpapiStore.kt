@@ -33,7 +33,10 @@ internal class WindowsDpapiStore(
         if (!storageDir.isDirectory && !storageDir.mkdirs()) throw KeychainUnavailableException("Windows ciphertext directory cannot be created")
         val file = fileFor(key)
         val encoded = Base64.getEncoder().encodeToString(value.toByteArray(Charsets.UTF_8))
-        // Use an atomic same-directory replacement; never truncate the previous ciphertext on failure.
+        // Use an atomic same-directory replacement; never truncate the previous ciphertext on
+        // failure. File.Replace's backup argument uses NullString.Value rather than $null:
+        // Windows PowerShell 5.1 coerces $null to an empty string for a String parameter, and
+        // File.Replace rejects "" as an illegal backup path.
         run("""
             ${'$'}bytes = [System.Convert]::FromBase64String('$encoded')
             ${'$'}protected = [System.Security.Cryptography.ProtectedData]::Protect(${'$'}bytes, ${'$'}null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
@@ -42,9 +45,6 @@ internal class WindowsDpapiStore(
             try {
                 [System.IO.File]::WriteAllBytes(${'$'}temp, ${'$'}protected)
                 if ([System.IO.File]::Exists(${'$'}path)) {
-                    // Windows PowerShell 5.1 coerces ${'$'}null to an empty string for a
-                    // String parameter, and File.Replace rejects "" as an illegal backup
-                    // path; NullString.Value passes a real CLR null through instead.
                     [System.IO.File]::Replace(${'$'}temp, ${'$'}path, [System.Management.Automation.Language.NullString]::Value)
                 } else {
                     [System.IO.File]::Move(${'$'}temp, ${'$'}path)
