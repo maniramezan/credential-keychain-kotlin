@@ -104,8 +104,8 @@ API modelling them.
 |---|---|---|
 | Android | `AndroidKeyStore` `setEntry(PrivateKeyEntry, KeyProtection)` | Private key becomes non-exportable on import (API 23+) |
 | Apple native | `SecPKCS12Import`, then `SecItemAdd` identity + certificates | iOS requires identities be imported into the app's keychain |
-| macOS JVM | JDK `KeychainStore` provider, or `security import` | `security import -P` takes the passphrase as an argument (visible in `ps`) — **must not be used**; prefer the JCA provider |
-| Windows JVM | JDK `SunMSCAPI` `Windows-MY` KeyStore | Native current-user certificate store, no subprocess |
+| macOS JVM | JDK `KeychainStore` provider | Verified to import, read, and delete EC identities on JDK 21. `security import -P` exposes the passphrase in `ps` and is not used |
+| Windows JVM | .NET `X509Certificate2` + `X509Store('My','CurrentUser')` via PowerShell | **Changed from SunMSCAPI:** `Windows-MY` `setKeyEntry` only accepts RSA private keys. Non-exportable persisted keys; bundle and passphrase only on stdin |
 | Linux JVM | PKCS#12 bytes as an encrypted Secret Service item | No standard secure certificate store; bundles over the 8 KiB `secret-tool` limit fail with `Unsupported`; no D-Bus client |
 
 ### 3. Hardware-backed keys
@@ -161,7 +161,13 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
 3. `HardwareKeyStore` — Android and Apple native; `Unsupported` on desktop JVM. **Implemented.**
    `sign` returns `null` for a missing alias, matching `read`/`find`; `generate` replaces an
    existing key; Android needs no `Context`.
-4. `CertificateStore` — the Linux size limit and macOS passphrase handling need care.
+4. `CertificateStore`, split into three changes:
+   - 4a — common API and desktop JVM backends (macOS, Linux, Windows). **Implemented.** The API
+     is `importPkcs12`, `importCertificate`, `info` (`CertificateInfo` with the DER chain and a
+     private-key flag), `aliases`, `delete`, and `clear`.
+   - 4b — Android Keystore and Apple Keychain identity backends.
+   - 4c — platform-native handles for stored identities (Android `PrivateKeyEntry`, JVM key
+     managers, Apple `SecIdentity`).
 5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness.
 
 ## Decisions
@@ -172,3 +178,5 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
 4. Biometric-protected secrets ship as the separate `credential-keychain-kotlin-biometric` artifact.
 5. Windows passwords use Credential Manager.
 6. Linux certificates use `secret-tool`; bundles over 8 KiB are `Unsupported`.
+7. Windows certificates use .NET `X509Store` through PowerShell instead of SunMSCAPI, so EC
+   identities are supported.

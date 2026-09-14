@@ -63,6 +63,18 @@ attempt to discover an Android context.
     exported as uncompressed points and wrapped in a P-256 SubjectPublicKeyInfo.
   - Desktop JVM returns an unsupported store: there is no command-line path to the Secure
     Enclave or a TPM.
+- `CertificateStore` shares its logic in `KeychainCertificateStore`: each entry's DER chain and a
+  private-key flag live under `certificate:<alias>`, and the alias index under `index`, in the
+  platform's `CredentialKeychain` for the service `credentialNamespace(serviceName, "certificates")`.
+  A `CertificateBackend` parses input and stores private keys under a namespaced label; parsing
+  happens before the old entry is replaced, and a metadata write rejected for size rolls back the
+  identity and reports `Unsupported`.
+  - macOS JVM uses the JDK `KeychainStore` provider (login keychain, label as alias).
+  - Windows imports into the current-user `My` store through .NET `X509Certificate2` with
+    `PersistKeySet,UserKeySet`, tagging the friendly name; removal also deletes the CNG/CAPI key
+    container. SunMSCAPI was not used because `Windows-MY` only accepts RSA private keys.
+  - Linux re-encodes the identity as PKCS#12 and stores it in Secret Service beside the metadata.
+  - Android and Apple currently return an unsupported store; their native backends follow.
 
 Identifiers isolate entries; they are not an authorization boundary. DPAPI protects data
 for the current Windows user, Secret Service access depends on that user's desktop session,

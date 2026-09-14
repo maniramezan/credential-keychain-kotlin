@@ -1,6 +1,8 @@
 package consumer
 
 import com.maniramezan.credentialkeychain.AppleAccessibility
+import com.maniramezan.credentialkeychain.CertificateInfo
+import com.maniramezan.credentialkeychain.CertificateStore
 import com.maniramezan.credentialkeychain.CredentialKeychain
 import com.maniramezan.credentialkeychain.HardwareKeySpec
 import com.maniramezan.credentialkeychain.HardwareKeyStore
@@ -51,6 +53,16 @@ class DeviceBinding(private val keys: HardwareKeyStore) {
 }
 
 fun createDeviceBinding(): DeviceBinding = DeviceBinding(HardwareKeyStore.forCurrentPlatform("consumer", "account"))
+
+class ClientIdentity(private val certificates: CertificateStore) {
+    fun install(pkcs12: ByteArray, passphrase: CharArray): CertificateInfo = certificates.importPkcs12("client", pkcs12, passphrase)
+    fun pin(certificateDer: ByteArray): CertificateInfo = certificates.importCertificate("pinned", certificateDer)
+    fun leaf(): ByteArray? = certificates.info("client")?.certificateChainDer?.firstOrNull()
+    fun installed(): List<String> = certificates.aliases()
+    fun remove() = certificates.clear()
+}
+
+fun createClientIdentity(): ClientIdentity = ClientIdentity(CertificateStore.forCurrentPlatform("consumer", "account"))
 
 fun shouldRetryLater(error: KeychainUnavailableException): Boolean =
     error.reason == KeychainUnavailableException.Reason.Locked
