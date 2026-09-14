@@ -23,7 +23,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v4
       - name: Install Linux Secret Service
         if: runner.os == 'Linux'
@@ -56,7 +56,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v4
       - name: Compile all targets and verify native storage, web, ABI, and docs
         run: bash scripts/macos-keychain-tests.sh ./gradlew assemble macosArm64Test jsNodeTest wasmJsNodeTest checkKotlinAbi dokkaGeneratePublicationHtml --stacktrace
