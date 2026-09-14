@@ -32,6 +32,45 @@ class DesktopIntegrationTest {
         }
     }
 
+    @Test fun realPasswordStoreRoundTripAndIsolation() {
+        assumeTrue(System.getenv("CREDENTIAL_KEYCHAIN_INTEGRATION") == "1")
+        val service = "keychain-test-${UUID.randomUUID()}"
+        val server = "api.example.com"
+        val first = PasswordStore.forCurrentPlatform(service, "first")
+        val second = PasswordStore.forCurrentPlatform(service, "second")
+        val secrets = CredentialKeychain.forCurrentPlatform(service, "first")
+        try {
+            assertNull(first.find(server, "alice"))
+            assertEquals(emptyList(), first.findAll(server))
+            first.save(PasswordCredential(server, "alice", "secret ' \" \\ 秘密"))
+            first.save(PasswordCredential(server, "bob", "  spaced  "))
+            first.save(PasswordCredential("other.example.com", "carol", "other server"))
+            second.save(PasswordCredential(server, "alice", "second account"))
+            secrets.write("alice", "generic secret")
+            assertEquals(PasswordCredential(server, "alice", "secret ' \" \\ 秘密"), first.find(server, "alice"))
+            assertEquals(
+                listOf(PasswordCredential(server, "alice", "secret ' \" \\ 秘密"), PasswordCredential(server, "bob", "  spaced  ")),
+                first.findAll(server),
+            )
+            first.save(PasswordCredential(server, "alice", "updated"))
+            assertEquals("updated", first.find(server, "alice")?.password)
+            first.delete(server, "bob")
+            assertNull(first.find(server, "bob"))
+            first.delete(server, "missing")
+            first.clear()
+            assertEquals(emptyList(), first.findAll(server))
+            assertNull(first.find("other.example.com", "carol"))
+            assertEquals("second account", second.find(server, "alice")?.password)
+            assertEquals("generic secret", secrets.read("alice"))
+            secrets.clear()
+            assertEquals("second account", second.find(server, "alice")?.password)
+        } finally {
+            first.clear()
+            second.clear()
+            secrets.clear()
+        }
+    }
+
     @Test fun realStoreClearRemovesOnlyItsNamespace() {
         assumeTrue(System.getenv("CREDENTIAL_KEYCHAIN_INTEGRATION") == "1")
         val service = "keychain-test-${UUID.randomUUID()}"

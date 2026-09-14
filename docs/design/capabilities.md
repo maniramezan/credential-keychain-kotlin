@@ -92,10 +92,10 @@ API modelling them.
 
 | Platform | Backend | Notes |
 |---|---|---|
-| Android | Same AES-GCM Keystore store as today, structured record per server/username | No system password store exists for app-private credentials |
+| Android | Same AES-GCM Keystore file encryption with a separate key; one file per server/username | No system password store exists for app-private credentials |
 | iOS/tvOS/watchOS/macOS native | `kSecClassInternetPassword` with `kSecAttrServer` + `kSecAttrAccount`; namespace in `kSecAttrSecurityDomain` | Honors `AppleAccessibility`; never synchronized |
-| macOS JVM | `security add-internet-password -s server -a user -r` via `-i` stdin | Same same-user readability caveat as generic passwords |
-| Linux JVM | Secret Service item with `server`/`username` attributes | Reuses `library` marker |
+| macOS JVM | `security add-internet-password -s server -a user -d namespace` via `-i` stdin; `findAll` from `dump-keychain` attributes | Same same-user readability caveat as generic passwords |
+| Linux JVM | Secret Service item with `server`/`username` attributes | Distinct `library` value, so neither store's `clear()` matches the other's items |
 | Windows JVM | Windows Credential Manager (`CredWriteW`, `CRED_TYPE_GENERIC`) | Decided over DPAPI files; needs a PowerShell P/Invoke shim |
 
 ### 2. Certificates and identities
@@ -154,8 +154,10 @@ artifact checker and consumer build must cover both artifacts.
 
 Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.1.0 is tagged.
 
-1. Failure reasons (`Canceled`, `AuthenticationInvalidated`) and shared validation.
-2. `PasswordStore` — smallest surface, reuses existing backends.
+1. Failure reasons (`Canceled`, `AuthenticationInvalidated`) and shared validation. **Implemented.**
+2. `PasswordStore` — smallest surface, reuses existing backends. **Implemented.** Passwords
+   exclude CR/LF and are capped at 2,560 UTF-8 bytes on every platform, so credentials stay
+   portable and `secret-tool`/`dump-keychain` output parsing stays unambiguous.
 3. `HardwareKeyStore` — Android and Apple native; `Unsupported` on desktop JVM.
 4. `CertificateStore` — the Linux size limit and macOS passphrase handling need care.
 5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness.
