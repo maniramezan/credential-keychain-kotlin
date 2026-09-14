@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "java",
+      "package-name": "credential-keychain-kotlin",
+      "initial-version": "0.1.0",
+      "skip-snapshot": true,
+      "skip-changelog": true,
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        { "type": "generic", "path": "gradle.properties" },
+        { "type": "generic", "path": "README.md" }
+      ],
+      "pull-request-footer": "Review compatibility and credential migration notes in this PR before merging. Merging creates a GitHub release and starts Maven Central staging; publication in Central Portal remains manual."
+    }
+  }
+}
