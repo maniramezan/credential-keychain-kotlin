@@ -12,7 +12,31 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Creates app-private storage encrypted with a non-exportable Android Keystore AES key. */
+/**
+ * Creates app-private storage isolated by [serviceName] and [accountName], encrypted with
+ * a non-exportable Android Keystore AES-256-GCM key. Ciphertext is written to a file under
+ * [Context.getNoBackupFilesDir], so entries are excluded from Auto Backup — Keystore keys
+ * are hardware/OS-bound and cannot be restored onto another device or after a factory reset.
+ *
+ * `context` is retained only as [Context.getApplicationContext], never the passed-in
+ * instance, so it is safe to call this with an `Activity` context without leaking it.
+ *
+ * ```kotlin
+ * val keychain = CredentialKeychain.forCurrentPlatform(
+ *     context = applicationContext,
+ *     serviceName = "my-app",
+ *     accountName = "user-123",
+ * )
+ * ```
+ *
+ * @param context any Android `Context`; only its application context is retained.
+ * @param serviceName identifies the calling application or integration; must be nonblank
+ *   and free of NUL/CR/LF.
+ * @param accountName identifies the credential owner; defaults to [serviceName]. Same
+ *   validity rules as [serviceName].
+ * @throws IllegalArgumentException if [serviceName] or [accountName] is blank or contains
+ *   NUL, CR, or LF.
+ */
 public fun CredentialKeychain.Companion.forCurrentPlatform(
     context: Context,
     serviceName: String,
