@@ -22,7 +22,7 @@ jobs:
       - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v5
       - run: ./gradlew ktlintCheck --stacktrace
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: kotlin-lint-reports
@@ -60,7 +60,7 @@ jobs:
         run: .\gradlew.bat --no-daemon jvmCoverageVerification --stacktrace
         env:
           CREDENTIAL_KEYCHAIN_INTEGRATION: '1'
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: desktop-reports-${{ matrix.os }}
@@ -96,7 +96,7 @@ jobs:
         run: ./gradlew -p verification/consumer assemble -PverificationRepository="$GITHUB_WORKSPACE/build/verification-repository"
       - name: Verify Swift error propagation using the published library
         run: bash scripts/swift-interop-tests.sh
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: multiplatform-reports
@@ -150,7 +150,7 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: ./gradlew connectedAndroidDeviceTest --stacktrace
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: android-reports-${{ matrix.api }}
