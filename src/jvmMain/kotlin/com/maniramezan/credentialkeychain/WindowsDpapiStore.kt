@@ -8,22 +8,24 @@ import java.util.Base64
 internal class WindowsDpapiStore(
     serviceName: String,
     accountName: String = serviceName,
-    private val powershell: File? = findExecutable("powershell.exe"),
+    powershell: File? = findExecutable("powershell.exe"),
     private val storageDir: File =
         File(
             System.getenv("LOCALAPPDATA") ?: System.getenv("APPDATA") ?: System.getProperty("user.home"),
             "credential-keychain/${digest(credentialNamespace(serviceName, accountName))}",
         ),
-    private val runner: CommandRunner = systemCommandRunner,
+    runner: CommandRunner = systemCommandRunner,
 ) : CredentialKeychain {
+    private val shell = PowerShell(powershell, runner)
+
     override fun read(key: String): String? {
-        requirePowerShell()
+        shell.requireExecutable()
         val file = fileFor(key)
         if (!file.exists()) return null
         val result =
             run(
                 """
-                ${'$'}bytes = [System.IO.File]::ReadAllBytes('${file.absolutePath.escaped()}')
+                ${'$'}bytes = [System.IO.File]::ReadAllBytes(${PowerShell.literal(file.absolutePath)})
                 ${'$'}plain = [System.Security.Cryptography.ProtectedData]::Unprotect(${'$'}bytes, ${'$'}null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
                 [Console]::Out.Write([System.Convert]::ToBase64String(${'$'}plain))
                 """.trimIndent(),
@@ -41,7 +43,7 @@ internal class WindowsDpapiStore(
         key: String,
         value: String,
     ) {
-        requirePowerShell()
+        shell.requireExecutable()
         if (!storageDir.isDirectory &&
             !storageDir.mkdirs()
         ) {
@@ -57,7 +59,7 @@ internal class WindowsDpapiStore(
             """
             ${'$'}bytes = [System.Convert]::FromBase64String('$encoded')
             ${'$'}protected = [System.Security.Cryptography.ProtectedData]::Protect(${'$'}bytes, ${'$'}null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
-            ${'$'}path = '${file.absolutePath.escaped()}'
+            ${'$'}path = ${PowerShell.literal(file.absolutePath)}
             ${'$'}temp = ${'$'}path + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
             try {
                 [System.IO.File]::WriteAllBytes(${'$'}temp, ${'$'}protected)
@@ -74,48 +76,18 @@ internal class WindowsDpapiStore(
     }
 
     override fun delete(key: String) {
-        requirePowerShell()
+        shell.requireExecutable()
         val file = fileFor(key)
         if (file.exists() && !file.delete()) throw commandFailure("Windows ciphertext cannot be deleted")
     }
 
     override fun clear() {
-        requirePowerShell()
+        shell.requireExecutable()
         storageDir.listFiles()?.forEach { if (!it.delete()) throw commandFailure("Windows ciphertext cannot be deleted") }
         if (storageDir.exists() && !storageDir.delete()) throw commandFailure("Windows ciphertext directory cannot be deleted")
     }
 
     internal fun fileFor(key: String): File = File(storageDir, "${digest(key)}.bin")
 
-    private fun requirePowerShell(): File =
-        powershell
-            ?: throw KeychainUnavailableException(Reason.Unsupported, "Windows PowerShell is not available")
-
-    private fun run(script: String): CommandResult {
-        val input =
-            """
-            ${'$'}ErrorActionPreference = 'Stop'
-            try {
-                Add-Type -AssemblyName System.Security
-                $script
-                exit 0
-            } catch {
-                [Console]::Error.WriteLine(${'$'}_.Exception.Message)
-                exit 1
-            }
-
-            """.trimIndent() + "\n"
-        // Never forward backend diagnostics: parser failures can include script source and secrets.
-        val bootstrap =
-            "try { \$reader = [System.IO.StreamReader]::new([Console]::OpenStandardInput(), " +
-                "[System.Text.UTF8Encoding]::new(\$false)); & ([ScriptBlock]::Create(\$reader.ReadToEnd())) } " +
-                "catch { exit 1 }"
-        val result = runner.run(listOf(requirePowerShell().absolutePath, "-NoProfile", "-NonInteractive", "-Command", bootstrap), input)
-        if (result.exitCode != 0) {
-            throw commandFailure("Windows DPAPI operation failed")
-        }
-        return result
-    }
-
-    private fun String.escaped(): String = replace("'", "''")
+    private fun run(script: String): CommandResult = shell.run(script, "Windows DPAPI operation failed")
 }

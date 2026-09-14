@@ -5,10 +5,11 @@ secure storage. There is no plaintext persistence fallback: every supported plat
 routes through its native secure-storage facility (Android Keystore, Apple Keychain,
 macOS Keychain, Linux Secret Service, or Windows DPAPI), or the call throws.
 
-This exists for apps and libraries that need one `CredentialKeychain` interface for
-things like storing an OAuth refresh token, a scoped API key, or a user's saved
-password/PAT across Android, iOS, macOS, tvOS, watchOS, and desktop JVM — without
-writing a platform-specific secure-storage adapter for each target.
+This exists for apps and libraries that need one interface for things like storing an
+OAuth refresh token, a scoped API key, or a user's saved username and password across
+Android, iOS, macOS, tvOS, watchOS, and desktop JVM — without writing a platform-specific
+secure-storage adapter for each target. `CredentialKeychain` stores secrets by key, and
+`PasswordStore` stores username/password credentials per server.
 
 ## Why this exists / what it does
 
@@ -24,8 +25,8 @@ writing a platform-specific secure-storage adapter for each target.
 - **Namespaced by service + account.** Multiple apps, environments, or user accounts
   sharing a device don't collide, because both `serviceName` and `accountName` are
   bound into the storage key rather than just a bare key string.
-- **Small, dependency-free surface.** Four methods, one options class, and one exception
-  type — see [Contract and requirements](#contract-and-requirements) for exact semantics.
+- **Small, dependency-free surface.** Two store interfaces, one options class, and one
+  exception type — see [Contract and requirements](#contract-and-requirements) for exact semantics.
 
 ## Platform support
 
@@ -38,7 +39,7 @@ writing a platform-specific secure-storage adapter for each target.
 | macOS | `macosArm64` | File-based login keychain through the Security framework |
 | macOS desktop JVM | `jvm` | Login keychain through `/usr/bin/security` |
 | Linux desktop JVM | `jvm` | Secret Service through `secret-tool` |
-| Windows desktop JVM | `jvm` | Current-user DPAPI through Windows PowerShell |
+| Windows desktop JVM | `jvm` | Current-user DPAPI (secrets) and Credential Manager (passwords) through Windows PowerShell |
 
 JVM artifacts target Java 17. Intel Apple targets (`iosX64`, `macosX64`, `tvosX64`,
 `watchosX64`) are not published; Intel Macs are supported through the JVM target. Windows
@@ -135,6 +136,24 @@ val keychain = CredentialKeychain.forCurrentPlatform(
 
 Options that don't apply to the current platform are ignored.
 
+### Usernames and passwords
+
+`PasswordStore` keeps username/password credentials per server, using each platform's native
+password storage. It is created the same way (Android uses the `Context`-taking overload) and
+is independent of a `CredentialKeychain` with the same service and account names:
+
+```kotlin
+val passwords = PasswordStore.forCurrentPlatform(serviceName = "my-app", accountName = "user-123")
+
+passwords.save(PasswordCredential(server = "api.example.com", username = "alice", password = "s3cret"))
+val alice: PasswordCredential? = passwords.find(server = "api.example.com", username = "alice")
+val accounts: List<String> = passwords.findAll(server = "api.example.com").map { it.username } // sorted
+passwords.delete(server = "api.example.com", username = "alice")
+passwords.clear() // removes every password for my-app/user-123, on every server
+```
+
+`PasswordCredential.toString()` never includes the password.
+
 ### Example: storing an OAuth token per user account
 
 Namespacing by `accountName` keeps one secure entry set per signed-in user without
@@ -188,6 +207,10 @@ let keychain = try CredentialKeychainCompanion.shared.forCurrentPlatform(service
 try keychain.write(key: "api-key", value: "secret-token")
 let token = try keychain.read(key: "api-key")
 try keychain.clear()
+
+let passwords = try PasswordStoreCompanion.shared.forCurrentPlatform(serviceName: "my-app", accountName: "user-123")
+try passwords.save(credential: PasswordCredential(server: "api.example.com", username: "alice", password: "s3cret"))
+let alice = try passwords.find(server: "api.example.com", username: "alice")
 ```
 
 Export this dependency from your consuming Kotlin framework before importing it in
@@ -235,6 +258,15 @@ keychain.write("github-token", token)
 - Identifiers must be nonblank and cannot contain NUL, CR, or LF; values cannot contain NUL.
 - macOS JVM's interactive `security` backend additionally rejects CR/LF in values.
   Native Apple and Android backends accept multiline secrets.
+- `PasswordStore` applies the same rules on every platform so credentials stay portable:
+  servers and usernames are nonblank without NUL, CR, or LF; usernames are at most 512
+  characters; passwords are nonblank, without NUL, CR, or LF, and at most 2,560 UTF-8 bytes
+  (the Windows Credential Manager limit). `save` replaces an existing password, and
+  `findAll` returns credentials sorted by username.
+- Passwords are stored as Keystore-encrypted files on Android, internet-password items
+  (security domain = service/account namespace) on Apple and macOS JVM, Secret Service items
+  on Linux, and Credential Manager generic credentials on Windows. On macOS JVM, `findAll`
+  lists usernames from `security dump-keychain`, which reads attributes but not passwords.
 - Android keys stay in Android Keystore; hardware backing depends on the device. Files
   contain authenticated ciphertext with the namespace and key bound as associated data.
   Ciphertext is excluded from backup because Keystore keys cannot be restored with it.
@@ -257,8 +289,8 @@ The library relies on each platform's secure storage and does not add protection
 it. In particular, on desktop JVM any process running as the same OS user can read the
 stored credentials: macOS items created through `/usr/bin/security` trust that tool, so
 `security find-generic-password` can read them without a prompt; unlocked Secret Service
-collections are available to the whole session; and DPAPI decrypts for any process of the
-same Windows user. Service and account names prevent collisions — they are not an
+collections are available to the whole session; and DPAPI and Credential Manager decrypt
+for any process of the same Windows user. Service and account names prevent collisions — they are not an
 authorization boundary. See [SECURITY.md](SECURITY.md) for the full model and for
 reporting vulnerabilities.
 

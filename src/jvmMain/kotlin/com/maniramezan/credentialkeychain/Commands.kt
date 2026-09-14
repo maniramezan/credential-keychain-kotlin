@@ -107,3 +107,17 @@ internal fun commandRunner(timeout: Duration): CommandRunner =
     }
 
 internal val systemCommandRunner: CommandRunner = commandRunner(DEFAULT_COMMAND_TIMEOUT)
+
+/** Decodes UTF-8 without replacement characters; returns `null` for malformed input. */
+internal fun ByteArray.decodeStrictUtf8(): String? {
+    val decoder =
+        Charsets.UTF_8
+            .newDecoder()
+            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+    return try {
+        decoder.decode(java.nio.ByteBuffer.wrap(this)).toString()
+    } catch (_: java.nio.charset.CharacterCodingException) {
+        null
+    }
+}

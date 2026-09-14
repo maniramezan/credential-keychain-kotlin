@@ -38,6 +38,20 @@ attempt to discover an Android context.
   - Windows writes only DPAPI ciphertext under `%LOCALAPPDATA%`, atomically replaces files,
     and implements `clear()` by removing the namespace directory.
   - Linux delegates persistence to the running Secret Service.
+- `PasswordStore` follows the same pattern: `ValidatingPasswordStore` applies the shared
+  server, username, and password rules and sorts `findAll`, and each platform keeps passwords
+  apart from `CredentialKeychain` entries in the same namespace.
+  - Android reuses the Keystore file encryption with a separate key and directory:
+    `<alias>/<sha256(server)>/<sha256(username)>.bin`. The plaintext is the length-prefixed
+    username and password, and the associated data binds the namespace, server, and file name.
+  - Apple (native) and macOS (JVM) use internet-password items whose security domain is the
+    namespace, with server and account attributes. macOS JVM lists usernames for `findAll`
+    from `security dump-keychain`, which prints attributes only, then reads each password.
+  - Linux uses `secret-tool` items with a distinct `library` attribute plus `server` and
+    `username`; `findAll` reads usernames from `search` and passwords from `lookup`.
+  - Windows uses Credential Manager generic credentials through a compiled C# shim for
+    `CredWriteW`/`CredReadW`/`CredEnumerateW`/`CredDeleteW`. Target names hash the namespace,
+    server, and username; the password is a UTF-8 blob.
 
 Identifiers isolate entries; they are not an authorization boundary. DPAPI protects data
 for the current Windows user, Secret Service access depends on that user's desktop session,

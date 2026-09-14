@@ -1,8 +1,10 @@
 # Module credential-keychain-kotlin
 
-Secure credential storage for Kotlin Multiplatform applications. One
-[com.maniramezan.credentialkeychain.CredentialKeychain] interface — `read`, `write`, `delete`,
-`clear` — backed by each platform's native secure storage:
+Secure credential storage for Kotlin Multiplatform applications.
+[com.maniramezan.credentialkeychain.CredentialKeychain] stores secrets by key (`read`, `write`,
+`delete`, `clear`), and [com.maniramezan.credentialkeychain.PasswordStore] stores
+username/password credentials per server (`save`, `find`, `findAll`, `delete`, `clear`). Both
+are backed by each platform's native secure storage:
 
 - **Android** — Android Keystore, AES-256-GCM, ciphertext in an app-private,
   non-backed-up file.
@@ -13,7 +15,8 @@ Secure credential storage for Kotlin Multiplatform applications. One
 - **macOS desktop JVM** — the login keychain through `/usr/bin/security`.
 - **Linux desktop JVM** — Secret Service (for example GNOME Keyring) through
   `secret-tool`.
-- **Windows desktop JVM** — current-user DPAPI through Windows PowerShell.
+- **Windows desktop JVM** — current-user DPAPI for secrets and Credential Manager for
+  passwords, through Windows PowerShell.
 
 No platform falls back to plaintext persistence: an unavailable or failing backend
 always throws rather than silently writing to a less secure location.
@@ -28,6 +31,11 @@ credentials.write("api-token", "secret")
 val token = credentials.read("api-token") // null only if absent
 credentials.delete("api-token")
 credentials.clear() // removes every entry for my-app/user-123
+
+val passwords = PasswordStore.forCurrentPlatform("my-app", "user-123")
+passwords.save(PasswordCredential(server = "api.example.com", username = "alice", password = "s3cret"))
+val alice = passwords.find(server = "api.example.com", username = "alice")
+val accounts = passwords.findAll(server = "api.example.com").map { it.username }
 ```
 
 On Android, import `com.maniramezan.credentialkeychain.forCurrentPlatform` and use the overload
@@ -50,7 +58,11 @@ thread or a background coroutine dispatcher, never the UI thread.
 - Identifiers (`serviceName`, `accountName`, and each `key`) must be nonblank and must not
   contain NUL, CR, or LF. Values must not contain NUL; macOS JVM additionally rejects CR/LF.
 - Entries are namespaced by **both** `serviceName` and `accountName`, so one process can keep
-  separate stores per app, environment, or signed-in user.
+  separate stores per app, environment, or signed-in user. A `CredentialKeychain` and a
+  `PasswordStore` with the same names never see or clear each other's entries.
+- Password credentials follow the same rules everywhere: servers and usernames are nonblank
+  without NUL, CR, or LF; usernames are at most 512 characters; passwords are nonblank, without
+  NUL, CR, or LF, and at most 2,560 UTF-8 bytes. `PasswordCredential.toString()` redacts the password.
 
 ## Full usage and platform guide
 
@@ -64,6 +76,9 @@ The shared credential storage interface, platform factories, options, and failur
 - [com.maniramezan.credentialkeychain.CredentialKeychain] — the storage interface plus the
   `forCurrentPlatform` factories on its companion object (Android adds a `Context`-taking
   overload of the same name in this package).
+- [com.maniramezan.credentialkeychain.PasswordStore] and
+  [com.maniramezan.credentialkeychain.PasswordCredential] — username/password storage per server,
+  with the same factories (and the same Android `Context`-taking overload).
 - [com.maniramezan.credentialkeychain.KeychainOptions] — Apple accessibility and desktop command timeout.
 - [com.maniramezan.credentialkeychain.KeychainUnavailableException] — thrown for every
   unavailable-backend or operational failure, never for "key not found".

@@ -4,6 +4,8 @@ import com.maniramezan.credentialkeychain.AppleAccessibility
 import com.maniramezan.credentialkeychain.CredentialKeychain
 import com.maniramezan.credentialkeychain.KeychainOptions
 import com.maniramezan.credentialkeychain.KeychainUnavailableException
+import com.maniramezan.credentialkeychain.PasswordCredential
+import com.maniramezan.credentialkeychain.PasswordStore
 import kotlin.time.Duration.Companion.seconds
 
 // Compile-only example. No real credentials are created by this publication check.
@@ -25,6 +27,18 @@ fun createBackgroundRepository(): CredentialRepository =
             KeychainOptions(appleAccessibility = AppleAccessibility.AfterFirstUnlock, desktopCommandTimeout = 60.seconds),
         ),
     )
+
+class AccountRepository(private val passwords: PasswordStore) {
+    fun remember(server: String, username: String, password: String) =
+        passwords.save(PasswordCredential(server, username, password))
+    fun accounts(server: String): List<String> = passwords.findAll(server).map { it.username }
+    fun password(server: String, username: String): String? = passwords.find(server, username)?.password
+    fun forget(server: String, username: String) = passwords.delete(server, username)
+    fun signOut() = passwords.clear()
+}
+
+fun createAccountRepository(): AccountRepository =
+    AccountRepository(PasswordStore.forCurrentPlatform("consumer", "account", KeychainOptions()))
 
 fun shouldRetryLater(error: KeychainUnavailableException): Boolean =
     error.reason == KeychainUnavailableException.Reason.Locked
