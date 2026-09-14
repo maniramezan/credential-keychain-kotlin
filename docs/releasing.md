@@ -58,6 +58,7 @@ bash scripts/macos-keychain-tests.sh ./gradlew jvmTest macosArm64Test --rerun-ta
 python3 scripts/verify-artifacts.py build/verification-repository
 ./gradlew -p verification/consumer assemble -PverificationRepository="$PWD/build/verification-repository"
 bash scripts/swift-interop-tests.sh
+bash scripts/apple-simulator-tests.sh
 python3 -m unittest discover -s scripts/tests
 ```
 

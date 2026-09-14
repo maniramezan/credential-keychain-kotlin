@@ -100,7 +100,7 @@ errors.
 | Android JVM, API 23+ | Android AAR and independent Android consumer | Real Keystore emulator tests, API 23 and 35 |
 | Desktop JVM (Java 17 bytecode) | JVM JAR and independent consumer | Real stores on Linux, Windows, and ARM macOS; deterministic adapter and process tests |
 | `macosArm64` | KLIB and consumer | Native Keychain tests on ARM macOS |
-| `iosArm64`, `iosSimulatorArm64` | KLIBs and consumers | Shared implementation tested on macOS; iOS runtime/signing is not covered by CI |
+| `iosArm64`, `iosSimulatorArm64` | KLIBs and consumers | iOS simulator app harness against the data-protection keychain; device signing, Secure Enclave, and lock states are not covered by CI |
 | `tvosArm64`, `tvosSimulatorArm64` | KLIBs and consumers | Shared implementation tested on macOS; tvOS runtime/signing is not covered by CI |
 | `watchosArm64`, `watchosDeviceArm64`, `watchosSimulatorArm64` | KLIBs and consumers | Shared implementation tested on macOS; watchOS runtime/signing is not covered by CI |
 | `js`, `wasmJs` | **Not published** | None; browsers have no OS keychain backend |
@@ -132,7 +132,12 @@ any verification job fails, is cancelled, or is skipped.
 Before each release, run signed app/device validation on iOS, tvOS, and watchOS for both
 accessibility options while locked/unlocked, app relaunch, reinstall, and signing/access-group
 changes. Kotlin/Native simulator test executables are not app-hosted and have no keychain
-access (`errSecNotAvailable`, reported as `Unsupported`), so `iosSimulatorArm64Test` cannot
-replace an app-hosted harness. Android hardware-backed Keystore behavior also needs
-representative physical-device testing. An app-hosted simulator/device harness and separate
-Android/native coverage reporting remain improvements, not existing gates.
+access (`errSecNotAvailable`, reported as `Unsupported`), so `iosSimulatorArm64Test` is not used.
+Instead, `scripts/apple-simulator-tests.sh` builds `verification/apple-harness/Harness.swift`
+against the exported iOS simulator framework into an ad-hoc signed app with keychain
+entitlements embedded in `__TEXT,__entitlements` (as Xcode does for simulators), runs it with
+`simctl spawn` on a disposable simulator, and requires `HARNESS-PASS`. That exercises the
+data-protection keychain through the public API, but not device-only behavior: Secure Enclave,
+lock states, reinstall, and real provisioning. Android hardware-backed Keystore behavior also needs
+representative physical-device testing, and separate Android/native coverage reporting remains an
+improvement, not an existing gate.

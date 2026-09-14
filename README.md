@@ -386,7 +386,9 @@ The common/JVM coverage gate is 85% lines and 70% branches; reports are under
 `build/reports/jacoco/`. These numbers do not measure native Apple or Android execution.
 
 CI runs real-store tests on Windows, macOS, and Linux, Android emulator tests on API 23
-and 35, native macOS Keychain tests, Kotlin lint, Apple compilation, API compatibility, documentation, publication-consumer, and Swift interop checks.
+and 35, native macOS Keychain tests, an iOS simulator app harness that exercises the Apple stores
+against the data-protection keychain, Kotlin lint, Apple compilation, API compatibility,
+documentation, publication-consumer, and Swift interop checks.
 
 Run desktop integration tests against a disposable namespace using:
 
@@ -394,5 +396,5 @@ Run desktop integration tests against a disposable namespace using:
 CREDENTIAL_KEYCHAIN_INTEGRATION=1 ./gradlew jvmTest --rerun-tasks
 ```
 
-Signed iOS, tvOS, and watchOS behavior (lock states, reinstall, access groups) requires
-device validation; compilation and macOS tests alone do not verify it.
+Device-only iOS, tvOS, and watchOS behavior (Secure Enclave, lock states, reinstall, access
+groups with real provisioning) requires device validation; the simulator harness does not verify it.

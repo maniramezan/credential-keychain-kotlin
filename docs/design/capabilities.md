@@ -171,7 +171,10 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
      (macOS 15, iOS/tvOS 18, watchOS 11).
    - 4d — platform-native handles for stored identities (Android `PrivateKeyEntry`, JVM key
      managers, Apple `SecIdentity`).
-5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness.
+5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness. The
+   iOS simulator harness (`scripts/apple-simulator-tests.sh`) landed first, to unblock 4c: inside
+   it, a memory-only `SecPKCS12Import` followed by `SecItemAdd` stores the identity with its label,
+   certificate, and private key, and deleting the identity by label removes both parts.
 
 ## Decisions
 
