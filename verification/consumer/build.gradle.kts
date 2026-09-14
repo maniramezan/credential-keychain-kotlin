@@ -8,13 +8,13 @@ val releaseProperties =
     Properties().apply {
         rootDir.resolve("../../gradle.properties").inputStream().use { load(it) }
     }
-val keychainDependency = "dev.amoo:credential-keychain-kotlin:${releaseProperties.getProperty("VERSION_NAME")}"
+val keychainDependency = "com.maniramezan:credential-keychain-kotlin:${releaseProperties.getProperty("VERSION_NAME")}"
 repositories {
     exclusiveContent {
         forRepository {
             maven { url = uri(providers.gradleProperty("verificationRepository").get()) }
         }
-        filter { includeGroup("dev.amoo") }
+        filter { includeGroup("com.maniramezan") }
     }
     google()
     mavenCentral()
@@ -23,29 +23,23 @@ kotlin {
     jvmToolchain(21)
     jvm()
     android {
-        namespace = "dev.amoo.keychain.consumer"
+        namespace = "com.maniramezan.keychain.consumer"
         compileSdk = 36
         minSdk = 23
     }
     iosArm64()
     iosSimulatorArm64()
-    iosX64()
     macosArm64 {
         binaries.framework {
             baseName = "KeychainConsumer"
             export(keychainDependency)
         }
     }
-    macosX64()
     tvosArm64()
     tvosSimulatorArm64()
-    tvosX64()
     watchosArm64()
     watchosDeviceArm64()
     watchosSimulatorArm64()
-    watchosX64()
-    js(IR) { nodejs() }
-    wasmJs { nodejs() }
     sourceSets.commonMain.dependencies {
         api(keychainDependency)
     }
