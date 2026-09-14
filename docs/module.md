@@ -86,8 +86,8 @@ The shared credential storage interface, platform factories, options, and failur
   StrongBox, the Android TEE, or the Apple Secure Enclave (no `Context` needed on Android).
 - [com.maniramezan.credentialkeychain.CertificateStore] and
   [com.maniramezan.credentialkeychain.CertificateInfo] — X.509 certificates and PKCS#12 identities
-  with natively stored private keys on desktop JVM and Android (`Context`-taking overload); Apple
-  is `Unsupported` for now.
+  with natively stored private keys on desktop JVM, Android (`Context`-taking overload), and Apple
+  platforms (data-protection keychain; apps need keychain entitlements).
 - [com.maniramezan.credentialkeychain.KeychainOptions] — Apple accessibility and desktop command timeout.
 - [com.maniramezan.credentialkeychain.KeychainUnavailableException] — thrown for every
   unavailable-backend or operational failure, never for "key not found".

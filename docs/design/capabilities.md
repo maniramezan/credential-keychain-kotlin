@@ -166,9 +166,10 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
      is `importPkcs12`, `importCertificate`, `info` (`CertificateInfo` with the DER chain and a
      private-key flag), `aliases`, `delete`, and `clear`.
    - 4b — Android Keystore identity backend. **Implemented.**
-   - 4c — Apple Keychain identity backend. Needs investigation first: `SecPKCS12Import` adds
-     identities to the macOS default keychain unless `kSecImportToMemoryOnly` is available
-     (macOS 15, iOS/tvOS 18, watchOS 11).
+   - 4c — Apple Keychain identity backend. **Implemented** after probing with the simulator
+     harness: memory-only `SecPKCS12Import`, then `SecItemAdd` into the data-protection keychain
+     with the namespaced label. macOS identities need macOS 15 (`kSecImportToMemoryOnly`) and a
+     process with keychain entitlements; unsigned macOS tools get `Unsupported`.
    - 4d — platform-native handles for stored identities (Android `PrivateKeyEntry`, JVM key
      managers, Apple `SecIdentity`).
 5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness. The

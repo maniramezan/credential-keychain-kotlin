@@ -78,7 +78,13 @@ attempt to discover an Android context.
     Keystore under `com.maniramezan.credentialkeychain.certificate.<sha256(label)>` with
     `KeyProtection`: EC keys for signing, RSA keys for signing and decryption. The common factory
     returns an unsupported store; callers use the `Context`-taking overload.
-  - Apple currently returns an unsupported store; its Keychain identity backend follows.
+  - Apple keeps metadata in `AppleKeychain` generic-password items and decodes PKCS#12 with
+    `SecPKCS12Import` in memory, passing `kSecImportToMemoryOnly` (looked up with `dlsym`, since
+    it exists only from iOS/tvOS 18, watchOS 11, and macOS 15). `SecItemAdd` stores the identity
+    with the namespaced label in the data-protection keychain, and deleting the identity by label
+    removes its certificate and private key. Unsigned macOS processes get `errSecMissingEntitlement`
+    (`Unsupported`), macOS without the import flag is `Unsupported` because decoding would add the
+    identity to the default keychain, and an identity already stored under another alias fails.
 
 Identifiers isolate entries; they are not an authorization boundary. DPAPI protects data
 for the current Windows user, Secret Service access depends on that user's desktop session,

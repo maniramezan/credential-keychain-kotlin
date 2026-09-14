@@ -192,8 +192,8 @@ certificates.delete("pinned-ca")
 A malformed bundle or wrong passphrase throws `IllegalArgumentException`; the passphrase array is
 not cleared for you. Desktop JVM stores identities in the macOS login keychain, the Windows
 current-user certificate store, or Linux Secret Service; Android moves private keys into Android
-Keystore (use the `Context`-taking overload). The Apple native backend is not available yet and
-throws `KeychainUnavailableException` with reason `Unsupported`.
+Keystore (use the `Context`-taking overload); Apple platforms store identities in the
+data-protection keychain, which needs an app with keychain entitlements.
 
 ### Example: storing an OAuth token per user account
 
@@ -322,6 +322,10 @@ keychain.write("github-token", token)
   Secret Service as a re-encoded PKCS#12 bundle, where bundles over 8 KiB fail with `Unsupported`.
   On Android, private keys are imported into Android Keystore as non-exportable keys: EC keys
   may sign, RSA keys may sign and decrypt (PKCS#1, PSS, OAEP). Other key algorithms are rejected.
+  On Apple platforms, bundles are decoded in memory and the identity (certificate and private key)
+  is stored in the data-protection keychain under a namespaced label. Unsigned macOS processes
+  cannot use that keychain and get `Unsupported`, and macOS identities need macOS 15 or later.
+  One identity can back only one alias per keychain; importing it under a second alias fails.
 - Android keys stay in Android Keystore; hardware backing depends on the device. Files
   contain authenticated ciphertext with the namespace and key bound as associated data.
   Ciphertext is excluded from backup because Keystore keys cannot be restored with it.
