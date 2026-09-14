@@ -74,7 +74,11 @@ attempt to discover an Android context.
     `PersistKeySet,UserKeySet`, tagging the friendly name; removal also deletes the CNG/CAPI key
     container. SunMSCAPI was not used because `Windows-MY` only accepts RSA private keys.
   - Linux re-encodes the identity as PKCS#12 and stores it in Secret Service beside the metadata.
-  - Android and Apple currently return an unsupported store; their native backends follow.
+  - Android keeps metadata in `AndroidKeychain` files and imports private keys into Android
+    Keystore under `com.maniramezan.credentialkeychain.certificate.<sha256(label)>` with
+    `KeyProtection`: EC keys for signing, RSA keys for signing and decryption. The common factory
+    returns an unsupported store; callers use the `Context`-taking overload.
+  - Apple currently returns an unsupported store; its Keychain identity backend follows.
 
 Identifiers isolate entries; they are not an authorization boundary. DPAPI protects data
 for the current Windows user, Secret Service access depends on that user's desktop session,
