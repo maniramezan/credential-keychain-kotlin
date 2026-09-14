@@ -1,8 +1,8 @@
 package consumer
 
 import android.content.Context
-import dev.amoo.credentialkeychain.CredentialKeychain
-import dev.amoo.credentialkeychain.forCurrentPlatform
+import com.maniramezan.credentialkeychain.CredentialKeychain
+import com.maniramezan.credentialkeychain.forCurrentPlatform
 
 fun createRepository(context: Context): CredentialRepository =
     CredentialRepository(CredentialKeychain.forCurrentPlatform(context, "consumer", "account"))
