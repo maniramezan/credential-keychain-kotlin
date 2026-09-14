@@ -39,6 +39,14 @@ _ = expectError { _ = try keys.info(alias: "") }
 _ = expectError { _ = try keys.sign(alias: "\n", data: KotlinByteArray(size: 1)) }
 _ = expectError { _ = try keys.generate(alias: " ", spec: HardwareKeySpec(allowSoftwareKeys: true)) }
 
+_ = expectError {
+    _ = try CertificateStoreCompanion.shared.forCurrentPlatform(serviceName: "", accountName: "account")
+}
+let certificates = try CertificateStoreCompanion.shared.forCurrentPlatform(serviceName: "swift-verification", accountName: "account")
+_ = expectError { _ = try certificates.info(alias: "") }
+_ = expectError { try certificates.delete(alias: "\n") }
+_ = expectError { _ = try certificates.importCertificate(alias: "pinned", certificateDer: KotlinByteArray(size: 0)) }
+
 let unavailable = ConsumerKt.unavailableForSwift()
 for operation in [
     { _ = try unavailable.read(key: "key") },

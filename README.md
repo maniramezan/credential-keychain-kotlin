@@ -174,6 +174,26 @@ simulators, unsigned macOS tools, desktop JVM). Pass `HardwareKeySpec(allowSoftw
 to accept software-backed keys where the platform offers them; `securityLevel` always reports
 what you actually got. Android needs no `Context` for this store.
 
+### Certificates and identities
+
+`CertificateStore` keeps X.509 certificates and PKCS#12 identities. Private keys go to native key
+storage; certificate chains are returned as DER, leaf first:
+
+```kotlin
+val certificates = CertificateStore.forCurrentPlatform(serviceName = "my-app", accountName = "user-123")
+
+val client: CertificateInfo = certificates.importPkcs12("client", pkcs12Bytes, passphrase) // replaces "client"
+certificates.importCertificate("pinned-ca", caCertificateDer)
+val chain: List<ByteArray>? = certificates.info("client")?.certificateChainDer
+val aliases: List<String> = certificates.aliases() // sorted
+certificates.delete("pinned-ca")
+```
+
+A malformed bundle or wrong passphrase throws `IllegalArgumentException`; the passphrase array is
+not cleared for you. Desktop JVM stores identities in the macOS login keychain, the Windows
+current-user certificate store, or Linux Secret Service. Android and Apple native backends are
+not available yet and throw `KeychainUnavailableException` with reason `Unsupported`.
+
 ### Example: storing an OAuth token per user account
 
 Namespacing by `accountName` keeps one secure entry set per signed-in user without
@@ -293,6 +313,12 @@ keychain.write("github-token", token)
   Apple Secure Enclave keys require a signed app (the data-protection keychain); unsigned macOS
   processes can only use opt-in software keys in the login keychain. Desktop JVM always throws
   `Unsupported`.
+- `CertificateStore` accepts PKCS#12 bundles with exactly one private key and DER certificates,
+  each at most 1 MiB. Chains and the alias index are kept in the platform's secret storage under
+  a separate "certificates" namespace; `aliases()` is not transactional across processes. On
+  desktop JVM, identities go to the macOS login keychain (JDK `KeychainStore`), the Windows
+  current-user `My` store with a non-exportable key (removed with its key container), or Linux
+  Secret Service as a re-encoded PKCS#12 bundle, where bundles over 8 KiB fail with `Unsupported`.
 - Android keys stay in Android Keystore; hardware backing depends on the device. Files
   contain authenticated ciphertext with the namespace and key bound as associated data.
   Ciphertext is excluded from backup because Keystore keys cannot be restored with it.
