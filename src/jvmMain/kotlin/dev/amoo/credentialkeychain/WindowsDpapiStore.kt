@@ -42,7 +42,10 @@ internal class WindowsDpapiStore(
             try {
                 [System.IO.File]::WriteAllBytes(${'$'}temp, ${'$'}protected)
                 if ([System.IO.File]::Exists(${'$'}path)) {
-                    [System.IO.File]::Replace(${'$'}temp, ${'$'}path, ${'$'}null)
+                    // Windows PowerShell 5.1 coerces ${'$'}null to an empty string for a
+                    // String parameter, and File.Replace rejects "" as an illegal backup
+                    // path; NullString.Value passes a real CLR null through instead.
+                    [System.IO.File]::Replace(${'$'}temp, ${'$'}path, [System.Management.Automation.Language.NullString]::Value)
                 } else {
                     [System.IO.File]::Move(${'$'}temp, ${'$'}path)
                 }
