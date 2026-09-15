@@ -5,7 +5,13 @@ GitHub Pages. A successful local compiler run alone does not establish release r
 the complete Verify workflow, artifact consumer, and device tests must pass on the exact
 release commit.
 
-Versions and tags are bare SemVer (`0.1.0`), never `v`-prefixed.
+Versions and tags are bare SemVer (`0.1.0`), never `v`-prefixed. Every published module
+shares one version, `VERSION_NAME` in the root `gradle.properties`, and releases together.
+
+The library lives in the `core` module. Build configuration shared by published modules is
+the `credentialkeychain.library` convention plugin in `build-logic/`; each module only sets
+its artifactId, Kotlin module name, Android namespace, POM name, and Dokka module name.
+Root Gradle tasks such as `jvmCoverageVerification` run in every module.
 
 ## One-time repository setup
 
@@ -79,11 +85,12 @@ from the generated filesystem repository and compiles for every declared target.
 
 - Run `./gradlew ktlintCheck` before submitting changes; use `./gradlew ktlintFormat`
   to apply the repository's `.editorconfig`.
-- `jvmCoverageReport` produces HTML and XML under `build/reports/jacoco/`.
+- `jvmCoverageReport` produces HTML and XML under each module's `build/reports/jacoco/`.
   `jvmCoverageVerification` requires at least **85% line** and **70% branch** coverage
-  across commonMain compiled for JVM plus jvmMain. It is part of `check`. It does not
-  measure Android or Apple native execution.
-- `checkKotlinAbi` checks the committed JVM, Android, and KLIB public API baselines in `api/`.
+  across commonMain compiled for JVM plus jvmMain, per module. It is part of `check`. It
+  does not measure Android or Apple native execution.
+- `checkKotlinAbi` checks the committed JVM, Android, and KLIB public API baselines in each
+  module's `api/` directory (for example `core/api/`).
   After intentionally changing a public API, run `./gradlew updateKotlinAbi` on macOS
   and review the entire baseline diff. Do not update baselines just to silence a failure.
 - Public declarations must have explicit visibility/types; Dokka fails on warnings and

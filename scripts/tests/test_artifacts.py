@@ -9,6 +9,8 @@ spec = importlib.util.spec_from_file_location("artifacts", Path(__file__).parent
 artifacts = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(artifacts)
 
+NAME = artifacts.ARTIFACTS[0]
+
 
 class ArtifactValidationTest(unittest.TestCase):
     def setUp(self):
@@ -16,21 +18,21 @@ class ArtifactValidationTest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.version = "0.1.0"
-        self.create_repository()
+        self.create_repository(NAME)
 
-    def directory(self, suffix=""):
-        name = artifacts.NAME + ("-" + suffix if suffix else "")
-        return self.root / "com/maniramezan" / name / self.version, f"{name}-{self.version}"
+    def directory(self, suffix="", name=NAME):
+        artifact = name + ("-" + suffix if suffix else "")
+        return self.root / "com/maniramezan" / artifact / self.version, f"{artifact}-{self.version}"
 
-    def create_repository(self):
+    def create_repository(self, name):
         root_variants = []
         for target, extension in artifacts.PLATFORMS.items():
-            directory, base = self.directory(target)
+            directory, base = self.directory(target, name)
             directory.mkdir(parents=True)
-            name = artifacts.NAME + ("-" + target if target else "")
+            artifact = name + ("-" + target if target else "")
             (directory / f"{base}.{extension}").write_bytes(b"binary")
             (directory / f"{base}.pom").write_text(f'''<project xmlns="http://maven.apache.org/POM/4.0.0">
-                <groupId>com.maniramezan</groupId><artifactId>{name}</artifactId><version>{self.version}</version>
+                <groupId>com.maniramezan</groupId><artifactId>{artifact}</artifactId><version>{self.version}</version>
                 <name>Keychain</name><description>Credentials</description><url>https://example.test</url>
                 <licenses><license><name>MIT</name></license></licenses>
                 <developers><developer><id>maintainer</id></developer></developers>
@@ -42,9 +44,9 @@ class ArtifactValidationTest(unittest.TestCase):
                 self.write_classes(directory / f"{base}.jar", artifacts.JVM_CLASS_MAJOR)
             (directory / f"{base}.module").write_text(json.dumps({"variants": [{"files": [{"url": f"{base}.{extension}"}]}]}))
             if target:
-                root_variants.append({"available-at": {"group": "com.maniramezan", "module": name, "version": self.version,
-                    "url": f"../../{name}/{self.version}/{base}.module"}})
-        directory, base = self.directory()
+                root_variants.append({"available-at": {"group": "com.maniramezan", "module": artifact, "version": self.version,
+                    "url": f"../../{artifact}/{self.version}/{base}.module"}})
+        directory, base = self.directory(name=name)
         (directory / f"{base}.module").write_text(json.dumps({"variants": root_variants}))
 
     @staticmethod
@@ -53,7 +55,13 @@ class ArtifactValidationTest(unittest.TestCase):
             jar.writestr("Credentials.class", b"\xca\xfe\xba\xbe\x00\x00" + major.to_bytes(2, "big"))
 
     def test_complete_unsigned_repository(self):
-        self.assertEqual(11, artifacts.verify(self.root, self.version))
+        self.assertEqual(11 * len(artifacts.ARTIFACTS), artifacts.verify(self.root, self.version, names=(NAME,)))
+
+    def test_every_listed_module_is_required(self):
+        with self.assertRaisesRegex(ValueError, "Missing or empty artifact: .*extra-module"):
+            artifacts.verify(self.root, self.version, names=(NAME, "extra-module"))
+        self.create_repository("extra-module")
+        self.assertEqual(22, artifacts.verify(self.root, self.version, names=(NAME, "extra-module")))
 
     def test_missing_platform_binary_fails(self):
         directory, base = self.directory("iosarm64")
