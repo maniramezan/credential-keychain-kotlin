@@ -91,6 +91,24 @@ class DesktopIntegrationTest {
             assertEquals(ec, CertificateStore.forCurrentPlatform(service, "first").info("client"))
             assertEquals(pinned, first.info("pinned"))
             assertEquals(listOf("client", "pinned", "rsa"), first.aliases())
+            for ((alias, algorithm) in listOf("client" to "SHA256withECDSA", "rsa" to "SHA256withRSA")) {
+                val entry = assertNotNull(first.privateKeyEntry(alias), alias)
+                val message = "challenge".toByteArray()
+                val signature =
+                    java.security.Signature.getInstance(algorithm).run {
+                        initSign(entry.privateKey)
+                        update(message)
+                        sign()
+                    }
+                val verified =
+                    java.security.Signature.getInstance(algorithm).run {
+                        initVerify(entry.certificate)
+                        update(message)
+                        verify(signature)
+                    }
+                assertTrue(verified, alias)
+            }
+            assertNull(first.privateKeyEntry("pinned"))
 
             val replacement = first.importPkcs12("client", TestCertificates.pkcs12("EC"), passphrase)
             assertNotEquals(ec, replacement)

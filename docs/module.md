@@ -87,7 +87,9 @@ The shared credential storage interface, platform factories, options, and failur
 - [com.maniramezan.credentialkeychain.CertificateStore] and
   [com.maniramezan.credentialkeychain.CertificateInfo] — X.509 certificates and PKCS#12 identities
   with natively stored private keys on desktop JVM, Android (`Context`-taking overload), and Apple
-  platforms (data-protection keychain; apps need keychain entitlements).
+  platforms (data-protection keychain; apps need keychain entitlements). Stored identities are usable
+  through `CertificateStore.privateKeyEntry` on Android and desktop JVM and
+  `CertificateStore.secIdentity` on Apple platforms.
 - [com.maniramezan.credentialkeychain.KeychainOptions] — Apple accessibility and desktop command timeout.
 - [com.maniramezan.credentialkeychain.KeychainUnavailableException] — thrown for every
   unavailable-backend or operational failure, never for "key not found".

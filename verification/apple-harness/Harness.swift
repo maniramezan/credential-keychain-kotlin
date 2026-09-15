@@ -122,9 +122,19 @@ do {
     check(identity.hasPrivateKey, "CertificateStore imports a PKCS#12 identity")
     check(identityCount() == 1, "the identity is stored in the keychain")
     check(try certificates.info(alias: "client") == identity, "CertificateStore info round trip")
+    if let raw = try AppleCertificateStoreKt.secIdentity(certificates, alias: "client") {
+        let handle = Unmanaged<SecIdentity>.fromOpaque(raw).takeRetainedValue()
+        var privateKey: SecKey?
+        SecIdentityCopyPrivateKey(handle, &privateKey)
+        let signature = privateKey.flatMap { SecKeyCreateSignature($0, .ecdsaSignatureMessageX962SHA256, Data("challenge".utf8) as CFData, nil) }
+        check(signature != nil, "secIdentity returns an identity whose private key signs")
+    } else {
+        failures.append("secIdentity returned nil for a stored identity")
+    }
 
     let pinned = try certificates.importCertificate(alias: "pinned", certificateDer: identity.certificateChainDer[0])
     check(!pinned.hasPrivateKey, "CertificateStore imports a certificate")
+    check(try AppleCertificateStoreKt.secIdentity(certificates, alias: "pinned") == nil, "secIdentity is nil for a certificate-only entry")
     check(try certificates.aliases() == ["client", "pinned"], "CertificateStore aliases are sorted")
 
     do {

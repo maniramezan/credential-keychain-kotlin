@@ -211,7 +211,7 @@ internal interface CertificateBackend {
 internal class KeychainCertificateStore(
     private val namespace: String,
     private val metadata: CredentialKeychain,
-    private val backend: CertificateBackend,
+    internal val backend: CertificateBackend,
 ) : CertificateStore {
     override fun importPkcs12(
         alias: String,
@@ -318,8 +318,25 @@ internal class KeychainCertificateStore(
     }
 }
 
+/**
+ * Resolves the backend and native label behind [alias] for the platform identity handles. Returns
+ * `null` when [alias] has no entry or holds only a certificate.
+ *
+ * @throws IllegalArgumentException if [alias] is invalid or this store was not created by
+ *   `CertificateStore.forCurrentPlatform`.
+ * @throws KeychainUnavailableException if the platform has no certificate backend or the lookup fails.
+ */
+internal fun CertificateStore.identityTarget(alias: String): Pair<CertificateBackend, String>? {
+    validateIdentifier(alias, "alias")
+    val store = (this as? ValidatingCertificateStore)?.delegate ?: this
+    // An unsupported platform reports its own failure instead of claiming the store is foreign.
+    if (store is UnsupportedCertificateStore) store.aliases()
+    require(store is KeychainCertificateStore) { "store must be created by CertificateStore.forCurrentPlatform." }
+    return if (store.info(alias)?.hasPrivateKey == true) store.backend to store.label(alias) else null
+}
+
 internal class ValidatingCertificateStore(
-    private val delegate: CertificateStore,
+    internal val delegate: CertificateStore,
 ) : CertificateStore {
     override fun importPkcs12(
         alias: String,

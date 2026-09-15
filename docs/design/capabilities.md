@@ -170,8 +170,10 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
      harness: memory-only `SecPKCS12Import`, then `SecItemAdd` into the data-protection keychain
      with the namespaced label. macOS identities need macOS 15 (`kSecImportToMemoryOnly`) and a
      process with keychain entitlements; unsigned macOS tools get `Unsupported`.
-   - 4d — platform-native handles for stored identities (Android `PrivateKeyEntry`, JVM key
-     managers, Apple `SecIdentity`).
+   - 4d — platform-native handles for stored identities. **Implemented** as
+     `CertificateStore.privateKeyEntry(alias): KeyStore.PrivateKeyEntry?` on Android and desktop
+     JVM and `CertificateStore.secIdentity(alias): SecIdentityRef?` (retained,
+     `@ExperimentalForeignApi`) on Apple platforms.
 5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness. The
    iOS simulator harness (`scripts/apple-simulator-tests.sh`) landed first, to unblock 4c: inside
    it, a memory-only `SecPKCS12Import` followed by `SecItemAdd` stores the identity with its label,

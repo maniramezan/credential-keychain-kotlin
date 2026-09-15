@@ -50,6 +50,21 @@ public fun CertificateStore.Companion.forCurrentPlatform(
     )
 }
 
+/**
+ * Returns the Android Keystore entry of the identity stored under [alias], for use with `Signature`,
+ * `KeyManagerFactory`, or an `SSLContext`. The private key stays inside Android Keystore.
+ *
+ * @return the entry, or `null` if [alias] has no entry or holds only a certificate.
+ * @throws KeychainUnavailableException if the read fails.
+ * @throws IllegalArgumentException if [alias] is blank or contains NUL, CR, or LF, or this store was
+ *   not created by `CertificateStore.forCurrentPlatform`.
+ */
+@Throws(KeychainUnavailableException::class, IllegalArgumentException::class)
+public fun CertificateStore.privateKeyEntry(alias: String): KeyStore.PrivateKeyEntry? {
+    val (backend, label) = identityTarget(alias) ?: return null
+    return (backend as AndroidCertificateBackend).privateKeyEntry(label)
+}
+
 internal actual fun platformCertificateStore(
     serviceName: String,
     accountName: String,
@@ -90,6 +105,9 @@ internal class AndroidCertificateBackend : CertificateBackend {
             store.setEntry(alias, KeyStore.PrivateKeyEntry(identity.privateKey, identity.chain.toTypedArray()), protection)
         }
     }
+
+    fun privateKeyEntry(label: String): KeyStore.PrivateKeyEntry? =
+        guarded { keyStore().getEntry(keyStoreAlias(label), null) as? KeyStore.PrivateKeyEntry }
 
     override fun deleteIdentity(label: String) =
         guarded {
