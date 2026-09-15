@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Publishes every module to build/verification-repository without credentials. -->
+  <configuration default="false" name="Publish Verification Repository" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="gradleJvm" value="#GRADLE_LOCAL_JAVA_HOME" />
+      <option name="module" value="credential-keychain-kotlin" />
+      <option name="tasks" value="publishAllPublicationsToVerificationRepository" />
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <DebuggingEnabled>true</DebuggingEnabled>
+  </configuration>
+</component>

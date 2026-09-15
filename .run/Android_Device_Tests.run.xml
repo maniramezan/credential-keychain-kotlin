@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Every module's device tests. ANDROID_SERIAL keeps them on the first emulator so connected
+       phones are never used; change it to target another device. -->
+  <configuration default="false" name="Android Device Tests (emulator-5554)" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="gradleJvm" value="#GRADLE_LOCAL_JAVA_HOME" />
+      <option name="module" value="credential-keychain-kotlin" />
+      <option name="tasks" value="connectedAndroidDeviceTest" />
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <envs>
+      <env name="ANDROID_SERIAL" value="emulator-5554" />
+    </envs>
+    <DebuggingEnabled>true</DebuggingEnabled>
+  </configuration>
+</component>

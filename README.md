@@ -431,6 +431,10 @@ lives in `core/`, with shared build configuration in `build-logic/`. Each module
 the KMP metadata publication and 10 platform publications; publish the complete set when
 distributing the library.
 
+IntelliJ IDEA and Android Studio load shared run configurations from `.run/`: Build All, JVM
+Tests, Android Device Tests (pinned to `emulator-5554` with `ANDROID_SERIAL`), desktop
+integration tests (macOS uses a disposable keychain), and the verification consumer build.
+
 ## Verification
 
 ```sh
