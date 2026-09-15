@@ -1,0 +1,20 @@
+public final class com/maniramezan/credentialkeychain/biometric/AuthenticationPrompt {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getCancelLabel ()Ljava/lang/String;
+	public final fun getSubtitle ()Ljava/lang/String;
+	public final fun getTitle ()Ljava/lang/String;
+}
+
+public abstract interface class com/maniramezan/credentialkeychain/biometric/ProtectedKeychain {
+	public static final field Companion Lcom/maniramezan/credentialkeychain/biometric/ProtectedKeychain$Companion;
+	public abstract fun clear ()V
+	public abstract fun delete (Ljava/lang/String;)V
+	public abstract fun read (Ljava/lang/String;Lcom/maniramezan/credentialkeychain/biometric/AuthenticationPrompt;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun write (Ljava/lang/String;Ljava/lang/String;)V
+}
+
+public final class com/maniramezan/credentialkeychain/biometric/ProtectedKeychain$Companion {
+	public final fun forCurrentPlatform (Ljava/lang/String;Ljava/lang/String;)Lcom/maniramezan/credentialkeychain/biometric/ProtectedKeychain;
+}
+

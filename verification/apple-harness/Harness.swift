@@ -156,6 +156,52 @@ do {
     failures.append("CertificateStore threw \(error)")
 }
 
+// The simulator enrolls biometrics (see apple-simulator-tests.sh) but does not enforce access control
+// on reads, so reads return values without a prompt. Prompts, cancellation, and enrollment changes
+// need a device.
+do {
+    let protected = try ProtectedKeychainCompanion.shared.forCurrentPlatform(serviceName: service, accountName: "first")
+    let other = try ProtectedKeychainCompanion.shared.forCurrentPlatform(serviceName: service, accountName: "second")
+    let core = try CredentialKeychainCompanion.shared.forCurrentPlatform(serviceName: service, accountName: "first")
+    defer {
+        try? protected.clear()
+        try? other.clear()
+        try? core.clear()
+    }
+    let prompt = AuthenticationPrompt(title: "Unlock", subtitle: nil, cancelLabel: "Cancel")
+    let read1 = try await protected.read(key: "token", prompt: prompt)
+    check(read1 == nil, "ProtectedKeychain starts empty")
+    try protected.write(key: "token", value: "  秘密 biometric")
+    try other.write(key: "token", value: "other account")
+    let read2 = try await protected.read(key: "token", prompt: prompt)
+    check(read2 == "  秘密 biometric", "ProtectedKeychain round trip")
+    check(try core.read(key: "token") == nil, "ProtectedKeychain entries are not CredentialKeychain entries")
+
+    // The stored item requires the current biometric enrollment.
+    let namespace = ["credential-keychain-kotlin-biometric", service, "first"].map { "\($0.utf16.count):\($0)" }.joined()
+    var attributes: CFTypeRef?
+    let status = SecItemCopyMatching([
+        kSecClass: kSecClassGenericPassword, kSecAttrService: namespace, kSecAttrAccount: "token",
+        kSecUseDataProtectionKeychain: true, kSecReturnAttributes: true,
+    ] as CFDictionary, &attributes)
+    check(status == errSecSuccess && (attributes as? [String: Any])?[kSecAttrAccessControl as String] != nil, "ProtectedKeychain items carry access control")
+
+    try protected.write(key: "token", value: "replaced")
+    let read3 = try await protected.read(key: "token", prompt: prompt)
+    check(read3 == "replaced", "ProtectedKeychain write replaces an entry")
+    try protected.delete(key: "token")
+    let read4 = try await protected.read(key: "token", prompt: prompt)
+    check(read4 == nil, "ProtectedKeychain delete")
+    try protected.write(key: "token", value: "again")
+    try protected.clear()
+    let read5 = try await protected.read(key: "token", prompt: prompt)
+    check(read5 == nil, "ProtectedKeychain clear")
+    let read6 = try await other.read(key: "token", prompt: prompt)
+    check(read6 == "other account", "ProtectedKeychain clear is namespaced")
+} catch {
+    failures.append("ProtectedKeychain threw \(error)")
+}
+
 if failures.isEmpty {
     print("HARNESS-PASS")
     exit(0)

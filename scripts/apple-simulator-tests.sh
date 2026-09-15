@@ -50,6 +50,9 @@ trap cleanup EXIT
 
 xcrun simctl boot "$device"
 xcrun simctl bootstatus "$device" -b >/dev/null
+# Enroll simulated biometrics so ProtectedKeychain can store items that require them.
+xcrun simctl spawn "$device" notifyutil -s com.apple.BiometricKit.enrollmentChanged 1
+xcrun simctl spawn "$device" notifyutil -p com.apple.BiometricKit.enrollmentChanged
 xcrun simctl install "$device" "$app"
 container=$(xcrun simctl get_app_container "$device" "$bundle_id" app)
 

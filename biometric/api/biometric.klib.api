@@ -1,0 +1,29 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, macosArm64, tvosArm64, tvosSimulatorArm64, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <com.maniramezan:credential-keychain-kotlin-biometric>
+abstract interface com.maniramezan.credentialkeychain.biometric/ProtectedKeychain { // com.maniramezan.credentialkeychain.biometric/ProtectedKeychain|null[0]
+    abstract fun clear() // com.maniramezan.credentialkeychain.biometric/ProtectedKeychain.clear|clear(){}[0]
+    abstract fun delete(kotlin/String) // com.maniramezan.credentialkeychain.biometric/ProtectedKeychain.delete|delete(kotlin.String){}[0]
+    abstract fun write(kotlin/String, kotlin/String) // com.maniramezan.credentialkeychain.biometric/ProtectedKeychain.write|write(kotlin.String;kotlin.String){}[0]
+    abstract suspend fun read(kotlin/String, com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt): kotlin/String? // com.maniramezan.credentialkeychain.biometric/ProtectedKeychain.read|read(kotlin.String;com.maniramezan.credentialkeychain.biometric.AuthenticationPrompt){}[0]
+
+    final object Companion { // com.maniramezan.credentialkeychain.biometric/ProtectedKeychain.Companion|null[0]
+        final fun forCurrentPlatform(kotlin/String, kotlin/String): com.maniramezan.credentialkeychain.biometric/ProtectedKeychain // com.maniramezan.credentialkeychain.biometric/ProtectedKeychain.Companion.forCurrentPlatform|forCurrentPlatform(kotlin.String;kotlin.String){}[0]
+    }
+}
+
+final class com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt { // com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt|null[0]
+    constructor <init>(kotlin/String, kotlin/String? = ..., kotlin/String) // com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt.<init>|<init>(kotlin.String;kotlin.String?;kotlin.String){}[0]
+
+    final val cancelLabel // com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt.cancelLabel|{}cancelLabel[0]
+        final fun <get-cancelLabel>(): kotlin/String // com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt.cancelLabel.<get-cancelLabel>|<get-cancelLabel>(){}[0]
+    final val subtitle // com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt.subtitle|{}subtitle[0]
+        final fun <get-subtitle>(): kotlin/String? // com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt.subtitle.<get-subtitle>|<get-subtitle>(){}[0]
+    final val title // com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt.title|{}title[0]
+        final fun <get-title>(): kotlin/String // com.maniramezan.credentialkeychain.biometric/AuthenticationPrompt.title.<get-title>|<get-title>(){}[0]
+}

@@ -9,6 +9,7 @@ val releaseProperties =
         rootDir.resolve("../../gradle.properties").inputStream().use { load(it) }
     }
 val keychainDependency = "com.maniramezan:credential-keychain-kotlin:${releaseProperties.getProperty("VERSION_NAME")}"
+val biometricDependency = "com.maniramezan:credential-keychain-kotlin-biometric:${releaseProperties.getProperty("VERSION_NAME")}"
 repositories {
     exclusiveContent {
         forRepository {
@@ -33,12 +34,14 @@ kotlin {
         binaries.framework {
             baseName = "KeychainConsumer"
             export(keychainDependency)
+            export(biometricDependency)
         }
     }
     macosArm64 {
         binaries.framework {
             baseName = "KeychainConsumer"
             export(keychainDependency)
+            export(biometricDependency)
         }
     }
     tvosArm64()
@@ -48,5 +51,6 @@ kotlin {
     watchosSimulatorArm64()
     sourceSets.commonMain.dependencies {
         api(keychainDependency)
+        api(biometricDependency)
     }
 }
