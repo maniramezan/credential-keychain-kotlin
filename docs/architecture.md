@@ -5,6 +5,16 @@ should create a platform instance in their composition root and inject the inter
 into shared code. Android supplies the Context-taking factory; shared code should not
 attempt to discover an Android context.
 
+## Project layout
+
+- `core/` is the published `com.maniramezan:credential-keychain-kotlin` library: sources,
+  API baselines (`core/api/`), and its Dokka module page (`core/module.md`).
+- `build-logic/` holds the `credentialkeychain.library` convention plugin, which applies the
+  targets, JVM 17 bytecode, explicit API mode, ABI validation, Dokka, publishing, ktlint, and
+  the JaCoCo gate to every published module, plus `credentialkeychain.root` for the root
+  project's script lint and aggregated documentation.
+- `verification/` holds the separate consumer build and the iOS simulator app harness.
+
 ## Responsibilities
 
 - `commonMain` owns the public contract, `KeychainOptions`, the failure `Reason`

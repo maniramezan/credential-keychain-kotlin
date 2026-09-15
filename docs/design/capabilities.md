@@ -174,7 +174,11 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
      `CertificateStore.privateKeyEntry(alias): KeyStore.PrivateKeyEntry?` on Android and desktop
      JVM and `CertificateStore.secIdentity(alias): SecIdentityRef?` (retained,
      `@ExperimentalForeignApi`) on Apple platforms.
-5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness. The
+5. `ProtectedKeychain` in the biometric module, plus an app-hosted iOS/Android test harness.
+   The build first becomes multi-module: the existing library moves to `:core` (same
+   `credential-keychain-kotlin` coordinates) with shared configuration in `build-logic/`, and
+   `:biometric` publishes `credential-keychain-kotlin-biometric` at the same version. The
+   biometric module requires Android API 23, iOS 15, and macOS 12. The
    iOS simulator harness (`scripts/apple-simulator-tests.sh`) landed first, to unblock 4c: inside
    it, a memory-only `SecPKCS12Import` followed by `SecItemAdd` stores the identity with its label,
    certificate, and private key, and deleting the identity by label removes both parts.

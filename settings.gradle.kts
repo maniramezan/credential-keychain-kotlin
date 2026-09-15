@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google()
         gradlePluginPortal()
@@ -6,3 +7,6 @@ pluginManagement {
     }
 }
 rootProject.name = "credential-keychain-kotlin"
+
+// Published as com.maniramezan:credential-keychain-kotlin.
+include(":core")

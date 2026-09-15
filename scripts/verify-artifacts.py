@@ -7,7 +7,8 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 
-NAME = "credential-keychain-kotlin"
+# Every published module; each one publishes the same KMP targets.
+ARTIFACTS = ("credential-keychain-kotlin",)
 PLATFORMS = {
     "": "jar", "jvm": "jar", "android": "aar",
     **{target: "klib" for target in (
@@ -31,11 +32,15 @@ def version_from_properties(path=Path("gradle.properties")):
     raise ValueError("VERSION_NAME is missing")
 
 
-def verify(repository, version, signed=False):
+def verify(repository, version, signed=False, names=ARTIFACTS):
     repository = Path(repository).resolve()
-    expected = {NAME + ("-" + target if target else "") for target in PLATFORMS}
+    return sum(verify_module(repository, name, version, signed) for name in names)
+
+
+def verify_module(repository, name, version, signed):
+    expected = {name + ("-" + target if target else "") for target in PLATFORMS}
     for target, extension in PLATFORMS.items():
-        artifact = NAME + ("-" + target if target else "")
+        artifact = name + ("-" + target if target else "")
         directory = repository / "com/maniramezan" / artifact / version
         base = f"{artifact}-{version}"
         paths = [directory / (base + suffix) for suffix in
@@ -55,10 +60,10 @@ def verify(repository, version, signed=False):
             if not pom.findtext(xpath, namespaces=NS):
                 raise ValueError(f"Missing POM {field}: {artifact}")
         with zipfile.ZipFile(directory / (base + "-sources.jar")) as sources:
-            if not any(name.endswith(".kt") for name in sources.namelist()):
+            if not any(entry.endswith(".kt") for entry in sources.namelist()):
                 raise ValueError(f"Empty Kotlin sources: {artifact}")
         with zipfile.ZipFile(directory / (base + "-javadoc.jar")) as docs:
-            if not any(name.endswith("index.html") for name in docs.namelist()):
+            if not any(entry.endswith("index.html") for entry in docs.namelist()):
                 raise ValueError(f"Empty API documentation: {artifact}")
         metadata = json.loads((directory / (base + ".module")).read_text())
         for variant in metadata.get("variants", []):
@@ -76,13 +81,13 @@ def verify(repository, version, signed=False):
         if target == "jvm":
             # Kotlin does not publish org.gradle.jvm.version, so inspect the class file versions.
             with zipfile.ZipFile(directory / (base + ".jar")) as jar:
-                majors = {int.from_bytes(jar.read(name)[6:8], "big") for name in jar.namelist() if name.endswith(".class")}
+                majors = {int.from_bytes(jar.read(entry)[6:8], "big") for entry in jar.namelist() if entry.endswith(".class")}
             if not majors or max(majors) > JVM_CLASS_MAJOR:
                 raise ValueError(f"JVM classes must target Java {JVM_VERSION}: found class versions {sorted(majors)}")
         if not target:
             actual = {v["available-at"]["module"] for v in metadata.get("variants", []) if "available-at" in v}
-            if actual != expected - {NAME}:
-                raise ValueError(f"Root metadata targets differ: missing={expected - {NAME} - actual}, extra={actual - expected}")
+            if actual != expected - {name}:
+                raise ValueError(f"Root metadata targets differ: missing={expected - {name} - actual}, extra={actual - expected}")
     return len(expected)
 
 
@@ -92,4 +97,4 @@ if __name__ == "__main__":
     parser.add_argument("--signed", action="store_true")
     args = parser.parse_args()
     count = verify(args.repository, version_from_properties(), args.signed)
-    print(f"Verified {count} KMP publications, sources, documentation, and metadata references.")
+    print(f"Verified {count} KMP publications across {len(ARTIFACTS)} modules, with sources, documentation, and metadata references.")

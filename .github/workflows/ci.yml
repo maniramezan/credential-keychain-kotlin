@@ -30,7 +30,7 @@ jobs:
         if: always()
         with:
           name: kotlin-lint-reports
-          path: build/reports/ktlint/
+          path: '**/build/reports/ktlint/'
   desktop:
     name: Desktop (${{ matrix.os }})
     strategy:
@@ -70,8 +70,8 @@ jobs:
         with:
           name: desktop-reports-${{ matrix.os }}
           path: |
-            build/reports/
-            build/test-results/
+            **/build/reports/
+            **/build/test-results/
   multiplatform:
     name: Apple, API, and publications
     runs-on: macos-26
@@ -91,7 +91,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-${{ hashFiles('build.gradle.kts') }}
+          key: konan-${{ runner.os }}-${{ hashFiles('build-logic/build.gradle.kts') }}
           restore-keys: |
             konan-${{ runner.os }}-
       - name: Compile all targets and verify ABI and docs
@@ -111,9 +111,9 @@ jobs:
         with:
           name: multiplatform-reports
           path: |
-            build/reports/
-            build/test-results/
-            build/kotlin/abi/
+            **/build/reports/
+            **/build/test-results/
+            **/build/kotlin/abi/
             build/dokka/html/
   android:
     name: Android API ${{ matrix.api }}
@@ -168,8 +168,8 @@ jobs:
         with:
           name: android-reports-${{ matrix.api }}
           path: |
-            build/reports/
-            build/outputs/androidTest-results/
+            **/build/reports/
+            **/build/outputs/androidTest-results/
   workflow-lint:
     name: Workflow and script checks
     runs-on: ubuntu-latest

@@ -389,7 +389,8 @@ Apple artifacts.
 ```
 
 After local publication, a consuming KMP project can add `mavenLocal()` to its repositories
-and depend on the same coordinates shown in [Installation](#installation). The build creates
+and depend on the same coordinates shown in [Installation](#installation). The library
+lives in `core/`, with shared build configuration in `build-logic/`. Each module creates
 the KMP metadata publication and 10 platform publications; publish the complete set when
 distributing the library.
 
@@ -402,7 +403,7 @@ distributing the library.
 ```
 
 The common/JVM coverage gate is 85% lines and 70% branches; reports are under
-`build/reports/jacoco/`. These numbers do not measure native Apple or Android execution.
+`core/build/reports/jacoco/`. These numbers do not measure native Apple or Android execution.
 
 CI runs real-store tests on Windows, macOS, and Linux, Android emulator tests on API 23
 and 35, native macOS Keychain tests, an iOS simulator app harness that exercises the Apple stores
