@@ -13,7 +13,12 @@ val biometricDependency = "com.maniramezan:credential-keychain-kotlin-biometric:
 repositories {
     exclusiveContent {
         forRepository {
-            maven { url = uri(providers.gradleProperty("verificationRepository").get()) }
+            // Defaults to the repository publishAllPublicationsToVerificationRepository writes at the root.
+            val verificationRepository =
+                providers
+                    .gradleProperty("verificationRepository")
+                    .orElse(rootDir.resolve("../../build/verification-repository").canonicalPath)
+            maven { url = uri(verificationRepository.get()) }
         }
         filter { includeGroup("com.maniramezan") }
     }

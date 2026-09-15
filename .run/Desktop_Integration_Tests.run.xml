@@ -1,0 +1,19 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Real OS stores on Linux (needs an unlocked Secret Service session) and Windows. The
+       environment variable is not a Gradle task input, so rerun tasks to avoid an up-to-date skip.
+       On macOS use the disposable-keychain configuration, which never touches the login keychain. -->
+  <configuration default="false" name="Desktop Integration Tests (Linux, Windows)" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="gradleJvm" value="#GRADLE_LOCAL_JAVA_HOME" />
+      <option name="module" value="credential-keychain-kotlin" />
+      <option name="tasks" value="jvmTest --rerun-tasks" />
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <envs>
+      <env name="CREDENTIAL_KEYCHAIN_INTEGRATION" value="1" />
+    </envs>
+    <DebuggingEnabled>true</DebuggingEnabled>
+  </configuration>
+</component>
