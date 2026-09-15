@@ -47,6 +47,31 @@ _ = expectError { _ = try certificates.info(alias: "") }
 _ = expectError { try certificates.delete(alias: "\n") }
 _ = expectError { _ = try certificates.importCertificate(alias: "pinned", certificateDer: KotlinByteArray(size: 0)) }
 
+// ProtectedKeychain: suspend reads bridge to async throwing functions. This unsigned process has
+// no keychain entitlements or enrolled biometrics, so the store reports Unsupported.
+_ = expectError {
+    _ = try ProtectedKeychainCompanion.shared.forCurrentPlatform(serviceName: "", accountName: "account")
+}
+let protected = try ProtectedKeychainCompanion.shared.forCurrentPlatform(serviceName: "swift-verification", accountName: "account")
+let prompt = AuthenticationPrompt(title: "Unlock", subtitle: nil, cancelLabel: "Cancel")
+_ = expectError { try protected.write(key: "key", value: " ") }
+guard let unsupportedWrite = expectError({ try protected.write(key: "key", value: "secret") }) as? KeychainUnavailableException else {
+    fatalError("Expected KeychainUnavailableException from ProtectedKeychain.write")
+}
+precondition(unsupportedWrite.reason == KeychainUnavailableException.Reason.unsupported)
+do {
+    _ = try await protected.read(key: "", prompt: prompt)
+    fatalError("Expected ProtectedKeychain.read to reject a blank key")
+} catch {
+    precondition((error as NSError).kotlinException is KotlinIllegalArgumentException)
+}
+do {
+    let missing = try await protected.read(key: "key", prompt: prompt)
+    precondition(missing == nil)
+} catch {
+    precondition(((error as NSError).kotlinException as? KeychainUnavailableException)?.reason == KeychainUnavailableException.Reason.unsupported)
+}
+
 let unavailable = ConsumerKt.unavailableForSwift()
 for operation in [
     { _ = try unavailable.read(key: "key") },

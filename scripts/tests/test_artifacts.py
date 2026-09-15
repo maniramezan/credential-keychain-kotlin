@@ -55,7 +55,7 @@ class ArtifactValidationTest(unittest.TestCase):
             jar.writestr("Credentials.class", b"\xca\xfe\xba\xbe\x00\x00" + major.to_bytes(2, "big"))
 
     def test_complete_unsigned_repository(self):
-        self.assertEqual(11 * len(artifacts.ARTIFACTS), artifacts.verify(self.root, self.version, names=(NAME,)))
+        self.assertEqual(11, artifacts.verify(self.root, self.version, names=(NAME,)))
 
     def test_every_listed_module_is_required(self):
         with self.assertRaisesRegex(ValueError, "Missing or empty artifact: .*extra-module"):

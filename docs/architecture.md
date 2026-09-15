@@ -9,6 +9,11 @@ attempt to discover an Android context.
 
 - `core/` is the published `com.maniramezan:credential-keychain-kotlin` library: sources,
   API baselines (`core/api/`), and its Dokka module page (`core/module.md`).
+- `biometric/` is the published `com.maniramezan:credential-keychain-kotlin-biometric` artifact
+  with `ProtectedKeychain`. It depends on `core` for `KeychainUnavailableException`, copies
+  core's internal validators (a parity test keeps them identical), and adds a
+  `localAuthenticationMain` source set shared by iOS and macOS, since tvOS has no
+  LocalAuthentication framework.
 - `build-logic/` holds the `credentialkeychain.library` convention plugin, which applies the
   targets, JVM 17 bytecode, explicit API mode, ABI validation, Dokka, publishing, ktlint, and
   the JaCoCo gate to every published module, plus `credentialkeychain.root` for the root

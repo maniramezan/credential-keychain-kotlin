@@ -183,6 +183,24 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
    it, a memory-only `SecPKCS12Import` followed by `SecItemAdd` stores the identity with its label,
    certificate, and private key, and deleting the identity by label removes both parts.
 
+   **Implemented** in `:biometric` (package `com.maniramezan.credentialkeychain.biometric`):
+   - Android: `setUserAuthenticationRequired` applies to every use of a symmetric Keystore key,
+     including encryption. So each namespace has an RSA-2048 Keystore key that requires Class 3
+     biometric authentication, and each entry is encrypted with a fresh AES-256-GCM key wrapped
+     with the RSA public key (OAEP, SHA-256 with MGF1 SHA-1). `write` needs no prompt; `read`
+     unwraps inside a `BiometricPrompt.CryptoObject`. The factory takes a `FragmentActivity`
+     provider instead of an activity per read, so the common interface stays the same on every
+     platform.
+   - iOS and macOS: data-protection keychain items with `biometryCurrentSet` access control,
+     replaced on write (updating would need authentication) and read through an `LAContext`.
+     An attribute-only lookup, which needs no authentication, separates a missing entry from
+     one invalidated by an enrollment change.
+   - The iOS simulator enrolls biometrics through `notifyutil` but does not enforce access
+     control on reads, and `LAContext.evaluatePolicy` fails with `LAErrorNotInteractive` in
+     `simctl spawn` processes. The harness therefore verifies storage, namespacing, and the
+     access-control attribute; prompts, cancellation, and invalidation are covered by status
+     mapping tests and need device validation.
+
 ## Decisions
 
 1. Separate interfaces per capability.

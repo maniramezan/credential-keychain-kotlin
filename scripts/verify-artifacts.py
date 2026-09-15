@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 # Every published module; each one publishes the same KMP targets.
-ARTIFACTS = ("credential-keychain-kotlin",)
+ARTIFACTS = ("credential-keychain-kotlin", "credential-keychain-kotlin-biometric")
 PLATFORMS = {
     "": "jar", "jvm": "jar", "android": "aar",
     **{target: "klib" for target in (

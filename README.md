@@ -53,9 +53,14 @@ native backends, and no web (`js`, `wasmJs`) targets.
 kotlin {
     sourceSets.commonMain.dependencies {
         implementation("com.maniramezan:credential-keychain-kotlin:0.1.0") // x-release-please-version
+        // Optional: secrets that require biometric authentication to read.
+        implementation("com.maniramezan:credential-keychain-kotlin-biometric:0.1.0") // x-release-please-version
     }
 }
 ```
+
+Both artifacts share one version. The biometric artifact adds `androidx.biometric` and
+`kotlinx-coroutines-core`; the core artifact has no dependencies.
 
 No extra platform dependency, manifest entry, or entitlement is required to link the
 library. Desktop JVM targets shell out to an OS tool (`security`, `secret-tool`,
@@ -209,6 +214,38 @@ val identity: SecIdentityRef? = certificates.secIdentity("client")
 
 Private keys stay in native storage: Android Keystore, the macOS login keychain, the Windows
 certificate store (read through the JDK `Windows-MY` provider), or the Apple keychain.
+
+### Biometric-protected secrets
+
+`ProtectedKeychain`, in the separate `credential-keychain-kotlin-biometric` artifact, stores
+secrets that need a strong biometric (Android Class 3, Face ID, or Touch ID) to read. Writing,
+deleting, and clearing need no authentication; `read` suspends while the system prompt is shown:
+
+```kotlin
+import com.maniramezan.credentialkeychain.biometric.AuthenticationPrompt
+import com.maniramezan.credentialkeychain.biometric.ProtectedKeychain
+
+// iOS and macOS; Android uses the overload that also takes a Context and a FragmentActivity provider.
+val protected = ProtectedKeychain.forCurrentPlatform(serviceName = "my-app", accountName = "user-123")
+protected.write("refresh-token", token)
+
+val prompt = AuthenticationPrompt(title = "Unlock your account", cancelLabel = "Cancel")
+try {
+    val token: String? = protected.read("refresh-token", prompt) // null if never written
+} catch (error: KeychainUnavailableException) {
+    when (error.reason) {
+        Reason.Canceled -> Unit // the user dismissed the prompt
+        Reason.AuthenticationInvalidated -> protected.delete("refresh-token") // enrollment changed; sign in again
+        else -> throw error
+    }
+}
+```
+
+Entries are invalidated when biometric enrollment changes. Android needs API 23+; iOS 15+ and
+macOS 12+ apps need keychain entitlements, and iOS apps that use Face ID need
+`NSFaceIDUsageDescription`. On tvOS, watchOS, and desktop JVM every operation throws
+`Reason.Unsupported`. The iOS simulator does not enforce biometric access control, so validate
+prompts and enrollment changes on a device.
 
 ### Example: storing an OAuth token per user account
 
