@@ -195,6 +195,21 @@ current-user certificate store, or Linux Secret Service; Android moves private k
 Keystore (use the `Context`-taking overload); Apple platforms store identities in the
 data-protection keychain, which needs an app with keychain entitlements.
 
+To use a stored identity for signing or client authentication, get its platform handle. Each
+returns `null` when the alias has no entry or holds only a certificate:
+
+```kotlin
+// androidMain and jvmMain: feeds Signature, KeyManagerFactory, or an SSLContext
+val entry: KeyStore.PrivateKeyEntry? = certificates.privateKeyEntry("client")
+
+// appleMain: a retained SecIdentityRef for URLSession client authentication; release with CFRelease
+@OptIn(ExperimentalForeignApi::class)
+val identity: SecIdentityRef? = certificates.secIdentity("client")
+```
+
+Private keys stay in native storage: Android Keystore, the macOS login keychain, the Windows
+certificate store (read through the JDK `Windows-MY` provider), or the Apple keychain.
+
 ### Example: storing an OAuth token per user account
 
 Namespacing by `accountName` keeps one secure entry set per signed-in user without

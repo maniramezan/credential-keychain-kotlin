@@ -48,6 +48,22 @@ class AndroidCertificateStoreTest {
                 assertTrue(verified, alias)
             }
             assertFalse(keyStore.containsAlias(keyStoreAlias(service, "first", "pinned")))
+            val handle = assertNotNull(first.privateKeyEntry("client"))
+            val handleSignature =
+                Signature.getInstance("SHA256withECDSA").run {
+                    initSign(handle.privateKey)
+                    update(MESSAGE)
+                    sign()
+                }
+            val handleVerified =
+                Signature.getInstance("SHA256withECDSA").run {
+                    initVerify(handle.certificate)
+                    update(MESSAGE)
+                    verify(handleSignature)
+                }
+            assertTrue(handleVerified)
+            assertNull(first.privateKeyEntry("pinned"))
+            assertNull(first.privateKeyEntry("missing"))
 
             first.delete("rsa")
             assertNull(first.info("rsa"))

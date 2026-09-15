@@ -28,6 +28,23 @@ internal actual fun platformCertificateStore(
     )
 
 /**
+ * Returns the keychain identity stored under [alias], for use with `URLSession` client
+ * authentication or `SecIdentityCopyPrivateKey`. The reference is retained: release it with
+ * `CFRelease` when done.
+ *
+ * @return the identity, or `null` if [alias] has no entry or holds only a certificate.
+ * @throws KeychainUnavailableException if the read fails.
+ * @throws IllegalArgumentException if [alias] is blank or contains NUL, CR, or LF, or this store was
+ *   not created by `CertificateStore.forCurrentPlatform`.
+ */
+@ExperimentalForeignApi
+@Throws(KeychainUnavailableException::class, IllegalArgumentException::class)
+public fun CertificateStore.secIdentity(alias: String): SecIdentityRef? {
+    val (backend, label) = identityTarget(alias) ?: return null
+    return (backend as AppleCertificateBackend).copyIdentity(label)
+}
+
+/**
  * Stores identities in the data-protection keychain. PKCS#12 data is decoded in memory with
  * `SecPKCS12Import`, then `SecItemAdd` stores the identity (certificate and private key) with the
  * namespaced label; deleting the identity by label removes both parts.
@@ -83,6 +100,25 @@ internal class AppleCertificateBackend(
             val status = SecItemDelete(query)
             // A process without keychain entitlements can never have stored an identity.
             if (status != errSecItemNotFound && status != errSecMissingEntitlement) checkSecStatus(status)
+        }
+
+    /** Returns a retained identity reference, or `null` when no identity has [label]. */
+    fun copyIdentity(label: String): SecIdentityRef? =
+        withRetainingDictionary { query ->
+            CFDictionarySetValue(query, kSecClass, kSecClassIdentity)
+            query.setString(kSecAttrLabel, label)
+            CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue)
+            CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue)
+            CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
+            memScoped {
+                val result = alloc<CFTypeRefVar>()
+                result.value = null
+                val status = SecItemCopyMatching(query, result.ptr)
+                if (status == errSecItemNotFound || status == errSecMissingEntitlement) return@memScoped null
+                checkSecStatus(status)
+                val identity: SecIdentityRef? = result.value?.reinterpret()
+                identity
+            }
         }
 
     private fun <T> withImportedIdentity(

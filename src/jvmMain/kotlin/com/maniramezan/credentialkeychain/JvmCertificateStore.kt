@@ -97,7 +97,7 @@ internal abstract class JvmCertificateBackend : CertificateBackend {
  * PKCS#12 exchange with the Security framework.
  */
 internal class MacOSCertificateBackend(
-    private val keyStore: () -> KeyStore = { KeyStore.getInstance("KeychainStore") },
+    internal val keyStore: () -> KeyStore = { KeyStore.getInstance("KeychainStore") },
 ) : JvmCertificateBackend() {
     override fun storeIdentity(
         label: String,
@@ -129,7 +129,7 @@ internal class MacOSCertificateBackend(
         }
     }
 
-    private companion object {
+    internal companion object {
         const val TRANSFER_PASSWORD = "credential-keychain-kotlin"
     }
 }

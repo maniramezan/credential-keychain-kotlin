@@ -1,4 +1,4 @@
-@file:OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+@file:OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class, kotlinx.cinterop.ExperimentalForeignApi::class)
 
 package com.maniramezan.credentialkeychain
 
@@ -32,6 +32,8 @@ class AppleCertificateStoreTest {
             assertContentEquals(LEAF_CERTIFICATE, pinned.certificateChainDer.single())
             assertEquals(pinned, store.info("pinned"))
             assertTrue("pinned" in store.aliases())
+            assertNull(store.secIdentity("pinned"))
+            assertNull(store.secIdentity("missing"))
 
             store.delete("pinned")
             assertNull(store.info("pinned"))

@@ -85,6 +85,12 @@ attempt to discover an Android context.
     removes its certificate and private key. Unsigned macOS processes get `errSecMissingEntitlement`
     (`Unsupported`), macOS without the import flag is `Unsupported` because decoding would add the
     identity to the default keychain, and an identity already stored under another alias fails.
+  - Platform handles resolve an alias through `identityTarget`, which unwraps the validating store,
+    rejects stores not created by `forCurrentPlatform`, and returns the backend and label only for
+    entries with a private key. `privateKeyEntry` (Android and JVM) reads Android Keystore, the JDK
+    `KeychainStore` on macOS, the JDK `Windows-MY` provider on Windows (aliases are the friendly
+    names set on import), or the Linux PKCS#12 bundle. `secIdentity` (Apple) returns a retained
+    `SecIdentityRef` from the data-protection keychain.
 
 Identifiers isolate entries; they are not an authorization boundary. DPAPI protects data
 for the current Windows user, Secret Service access depends on that user's desktop session,
