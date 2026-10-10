@@ -28,9 +28,7 @@ internal actual fun platformCertificateStore(
             }
 
             DesktopOs.Windows -> {
-                WindowsCertificateBackend(
-                    PowerShell(findExecutable("powershell.exe"), commandRunner(options.desktopCommandTimeout)),
-                )
+                WindowsCertificateBackend()
             }
 
             DesktopOs.Other -> {
@@ -184,70 +182,20 @@ internal class LinuxCertificateBackend(
 
 /**
  * Imports identities into the Windows current-user `My` certificate store with a non-exportable,
- * persisted private key, tagged by friendly name. Deleting removes the certificate and its key
- * container. Bundles and passphrases travel only through stdin.
+ * persisted private key, tagged by friendly name, through in-process CryptoAPI calls. Deleting
+ * removes the certificate and its key container.
  */
 internal class WindowsCertificateBackend(
-    private val shell: PowerShell,
+    private val windowsApi: () -> WindowsApi = ::systemWindowsApi,
 ) : JvmCertificateBackend() {
     override fun storeIdentity(
         label: String,
         pkcs12: ByteArray,
         passphrase: CharArray,
-    ) {
-        shell.requireExecutable()
-        val encodedBundle = Base64.getEncoder().encodeToString(pkcs12)
-        val encodedPassphrase = Base64.getEncoder().encodeToString(String(passphrase).toByteArray(Charsets.UTF_8))
-        run(
-            """
-            $REMOVE_FUNCTION
-            ${'$'}bytes = [System.Convert]::FromBase64String(${PowerShell.literal(encodedBundle)})
-            ${'$'}password = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(${PowerShell.literal(
-                encodedPassphrase,
-            )}))
-            ${'$'}flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]'PersistKeySet,UserKeySet'
-            ${'$'}certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(${'$'}bytes, ${'$'}password, ${'$'}flags)
-            ${'$'}certificate.FriendlyName = ${PowerShell.literal(label)}
-            Remove-CkkCertificates ${PowerShell.literal(label)}
-            ${'$'}store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', 'CurrentUser')
-            ${'$'}store.Open('ReadWrite')
-            try { ${'$'}store.Add(${'$'}certificate) } finally { ${'$'}store.Close() }
-            """.trimIndent(),
-        )
-    }
+    ) = certificates { it.importIdentity(label, pkcs12, passphrase) }
 
-    override fun deleteIdentity(label: String) {
-        shell.requireExecutable()
-        run("$REMOVE_FUNCTION\nRemove-CkkCertificates ${PowerShell.literal(label)}")
-    }
+    override fun deleteIdentity(label: String) = certificates { it.deleteIdentities(label) }
 
-    private fun run(script: String) = shell.run(script, "Windows certificate store operation failed")
-
-    private companion object {
-        val REMOVE_FUNCTION =
-            """
-            function Remove-CkkCertificates([string]${'$'}label) {
-                ${'$'}store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', 'CurrentUser')
-                ${'$'}store.Open('ReadWrite')
-                try {
-                    foreach (${'$'}existing in @(${'$'}store.Certificates | Where-Object { ${'$'}_.FriendlyName -eq ${'$'}label })) {
-                        if (${'$'}existing.HasPrivateKey) {
-                            try {
-                                ${'$'}rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey(${'$'}existing)
-                                if (${'$'}rsa -is [System.Security.Cryptography.RSACng]) { ${'$'}rsa.Key.Delete() }
-                                elseif (${'$'}rsa -is [System.Security.Cryptography.RSACryptoServiceProvider]) { ${'$'}rsa.PersistKeyInCsp = ${'$'}false; ${'$'}rsa.Clear() }
-                            } catch { }
-                            try {
-                                ${'$'}ecdsa = [System.Security.Cryptography.X509Certificates.ECDsaCertificateExtensions]::GetECDsaPrivateKey(${'$'}existing)
-                                if (${'$'}ecdsa -is [System.Security.Cryptography.ECDsaCng]) { ${'$'}ecdsa.Key.Delete() }
-                            } catch { }
-                        }
-                        ${'$'}store.Remove(${'$'}existing)
-                    }
-                } finally {
-                    ${'$'}store.Close()
-                }
-            }
-            """.trimIndent()
-    }
+    private inline fun certificates(block: (WindowsApi) -> Unit) =
+        windowsCall(windowsApi, "Windows certificate store operation failed", block)
 }

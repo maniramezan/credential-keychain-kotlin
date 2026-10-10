@@ -50,8 +50,11 @@ attempt to discover an Android context.
   - macOS uses the same service/account layout as native Apple. `clear()` repeats
     service-scoped deletion until the tool reports no match. `security` exit codes are the
     low byte of the failing `OSStatus`, which maps lock/denial statuses to `Locked`.
-  - Windows writes only DPAPI ciphertext under `%LOCALAPPDATA%`, atomically replaces files,
-    and implements `clear()` by removing the namespace directory.
+  - Windows is the exception: it calls DPAPI, Credential Manager, and CryptoAPI in-process
+    through JNA behind an injectable `WindowsApi`, so it has no subprocess or timeout. It
+    writes only DPAPI ciphertext under `%LOCALAPPDATA%`, atomically replaces files, and
+    implements `clear()` by removing the namespace directory. Native failures are sanitized
+    like tool failures, and a JVM that cannot load JNA reports `Unsupported`.
   - Linux delegates persistence to the running Secret Service.
 - `PasswordStore` follows the same pattern: `ValidatingPasswordStore` applies the shared
   server, username, and password rules and sorts `findAll`, and each platform keeps passwords

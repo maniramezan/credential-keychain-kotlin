@@ -9,7 +9,7 @@ internal actual fun platformKeychain(
     return when (desktopOs()) {
         DesktopOs.MacOS -> MacOSKeychainStore(serviceName, accountName, runner = runner)
         DesktopOs.Linux -> LinuxKeyringStore(serviceName, accountName, runner = runner)
-        DesktopOs.Windows -> WindowsDpapiStore(serviceName, accountName, runner = runner)
+        DesktopOs.Windows -> WindowsDpapiStore(serviceName, accountName)
         DesktopOs.Other -> UnsupportedKeychainStore(unsupportedOsName())
     }
 }
@@ -23,7 +23,7 @@ internal actual fun platformPasswordStore(
     return when (desktopOs()) {
         DesktopOs.MacOS -> MacOSPasswordStore(serviceName, accountName, runner = runner)
         DesktopOs.Linux -> LinuxPasswordStore(serviceName, accountName, runner = runner)
-        DesktopOs.Windows -> WindowsCredentialManagerStore(serviceName, accountName, runner = runner)
+        DesktopOs.Windows -> WindowsCredentialManagerStore(serviceName, accountName)
         DesktopOs.Other -> UnsupportedPasswordStore(unsupportedOsName())
     }
 }

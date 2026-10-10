@@ -87,55 +87,25 @@ class CertificateBackendTest {
         )
     }
 
-    @Test fun windowsSendsBundlesAndPassphrasesOnlyThroughStdin() {
+    @Test fun windowsImportsAndDeletesIdentitiesByFriendlyName() {
+        val api = FakeWindowsApi()
+        val backend = WindowsCertificateBackend { api }
         val pkcs12 = TestCertificates.pkcs12("EC")
-        val encodedBundle = Base64.getEncoder().encodeToString(pkcs12)
-        val encodedPassphrase = Base64.getEncoder().encodeToString(TestCertificates.PASSPHRASE.toByteArray())
-        val scripts = mutableListOf<String>()
-        val backend =
-            WindowsCertificateBackend(
-                PowerShell(
-                    File("powershell.exe"),
-                    CommandRunner { args, stdin ->
-                        val commandLine = args.joinToString(" ")
-                        assertFalse(commandLine.contains(encodedBundle))
-                        assertFalse(commandLine.contains(encodedPassphrase))
-                        assertFalse(commandLine.contains(TestCertificates.PASSPHRASE))
-                        scripts += checkNotNull(stdin)
-                        CommandResult(0, "", "")
-                    },
-                ),
-            )
         backend.storeIdentity("credential-keychain-kotlin:it's", pkcs12, TestCertificates.PASSPHRASE.toCharArray())
+        assertContentEquals(pkcs12 + TestCertificates.PASSPHRASE.toByteArray(), api.identities["credential-keychain-kotlin:it's"])
         backend.deleteIdentity("credential-keychain-kotlin:it's")
-        val (store, delete) = scripts
-        assertTrue(store.contains(encodedBundle))
-        assertTrue(store.contains(encodedPassphrase))
-        assertTrue(store.contains("X509KeyStorageFlags]'PersistKeySet,UserKeySet'"))
-        assertTrue(store.contains("FriendlyName = 'credential-keychain-kotlin:it''s'"))
-        assertTrue(store.contains("[System.Security.Cryptography.X509Certificates.X509Store]::new('My', 'CurrentUser')"))
-        assertTrue(store.indexOf("Remove-CkkCertificates 'credential") < store.indexOf("\$store.Add"))
-        assertTrue(delete.contains("Remove-CkkCertificates 'credential-keychain-kotlin:it''s'"))
-        assertTrue(delete.contains("Key.Delete()"))
+        assertEquals(emptyMap(), api.identities)
+        assertEquals(listOf("importIdentity", "deleteIdentities"), api.calls)
     }
 
-    @Test fun windowsFailuresAreSanitizedAndMissingPowerShellIsUnsupported() {
-        val broken =
-            WindowsCertificateBackend(
-                PowerShell(
-                    File("powershell.exe"),
-                    CommandRunner {
-                        _,
-                        _,
-                        ->
-                        CommandResult(1, "", "sensitive")
-                    },
-                ),
-            )
-        val error = assertFailsWith<KeychainUnavailableException> { broken.deleteIdentity("label") }
-        assertEquals(Reason.Failed, error.reason)
-        assertFalse(error.toString().contains("sensitive"))
-        val missing = WindowsCertificateBackend(PowerShell(null, CommandRunner { _, _ -> error("must not launch") }))
+    @Test fun windowsFailuresAreSanitizedAndMissingNativeLayerIsUnsupported() {
+        val broken = WindowsCertificateBackend { FakeWindowsApi().apply { failure = IllegalStateException("sensitive") } }
+        for (call in listOf({ broken.deleteIdentity("label") }, { broken.storeIdentity("label", byteArrayOf(1), "x".toCharArray()) })) {
+            val error = assertFailsWith<KeychainUnavailableException> { call() }
+            assertEquals(Reason.Failed, error.reason)
+            assertFalse(error.toString().contains("sensitive"))
+        }
+        val missing = WindowsCertificateBackend { throw NoClassDefFoundError("com/sun/jna/Native") }
         assertEquals(Reason.Unsupported, assertFailsWith<KeychainUnavailableException> { missing.deleteIdentity("label") }.reason)
     }
 

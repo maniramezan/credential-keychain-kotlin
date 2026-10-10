@@ -96,7 +96,7 @@ API modelling them.
 | iOS/tvOS/watchOS/macOS native | `kSecClassInternetPassword` with `kSecAttrServer` + `kSecAttrAccount`; namespace in `kSecAttrSecurityDomain` | Honors `AppleAccessibility`; never synchronized |
 | macOS JVM | `security add-internet-password -s server -a user -d namespace` via `-i` stdin; `findAll` from `dump-keychain` attributes | Same same-user readability caveat as generic passwords |
 | Linux JVM | Secret Service item with `server`/`username` attributes | Distinct `library` value, so neither store's `clear()` matches the other's items |
-| Windows JVM | Windows Credential Manager (`CredWriteW`, `CRED_TYPE_GENERIC`) | Decided over DPAPI files; needs a PowerShell P/Invoke shim |
+| Windows JVM | Windows Credential Manager (`CredWriteW`, `CRED_TYPE_GENERIC`) | Decided over DPAPI files; called in-process through JNA |
 
 ### 2. Certificates and identities
 
@@ -105,7 +105,7 @@ API modelling them.
 | Android | `AndroidKeyStore` `setEntry(PrivateKeyEntry, KeyProtection)` | Private key becomes non-exportable on import (API 23+) |
 | Apple native | `SecPKCS12Import`, then `SecItemAdd` identity + certificates | iOS requires identities be imported into the app's keychain |
 | macOS JVM | JDK `KeychainStore` provider | Verified to import, read, and delete EC identities on JDK 21. `security import -P` exposes the passphrase in `ps` and is not used |
-| Windows JVM | .NET `X509Certificate2` + `X509Store('My','CurrentUser')` via PowerShell | **Changed from SunMSCAPI:** `Windows-MY` `setKeyEntry` only accepts RSA private keys. Non-exportable persisted keys; bundle and passphrase only on stdin |
+| Windows JVM | `PFXImportCertStore` + `CertAddCertificateContextToStore` into current-user `My`, through JNA | **Changed from SunMSCAPI:** `Windows-MY` `setKeyEntry` only accepts RSA private keys. Non-exportable persisted keys; deletion removes the CNG or CryptoAPI key container |
 | Linux JVM | PKCS#12 bytes as an encrypted Secret Service item | No standard secure certificate store; bundles over the 8 KiB `secret-tool` limit fail with `Unsupported`; no D-Bus client |
 
 ### 3. Hardware-backed keys
@@ -209,5 +209,8 @@ Each phase is its own PR with docs, ABI baselines, and tests. All land before 0.
 4. Biometric-protected secrets ship as the separate `credential-keychain-kotlin-biometric` artifact.
 5. Windows passwords use Credential Manager.
 6. Linux certificates use `secret-tool`; bundles over 8 KiB are `Unsupported`.
-7. Windows certificates use .NET `X509Store` through PowerShell instead of SunMSCAPI, so EC
+7. Windows certificates use CryptoAPI (`PFXImportCertStore`) instead of SunMSCAPI, so EC
    identities are supported.
+8. Windows backends call Win32 in-process through JNA rather than through a Windows
+   PowerShell subprocess, removing the `powershell.exe` requirement, script-host policy
+   exposure, and per-call process start-up.

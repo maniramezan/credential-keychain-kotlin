@@ -3,65 +3,67 @@ package com.maniramezan.credentialkeychain
 import com.maniramezan.credentialkeychain.KeychainUnavailableException.Reason
 import java.io.File
 import java.nio.file.Files
-import java.util.Base64
 import kotlin.test.*
 
 class WindowsFailureTest {
-    @Test fun missingEntriesDoNotLaunchPowerShell() =
+    @Test fun missingEntriesNeverCallDpapi() =
         withDirectory { directory ->
-            val store = store(directory, CommandRunner { _, _ -> error("Must not launch") })
+            val api = FakeWindowsApi()
+            val store = store(directory, api)
             assertNull(store.read("missing"))
             store.delete("missing")
+            assertEquals(emptyList(), api.calls)
         }
 
-    @Test fun readsDecodeExactUnicodeAndMultilineData() =
+    @Test fun roundTripsExactUnicodeAndMultilineDataAsCiphertextOnly() =
         withDirectory { directory ->
             val secret = "  秘密\r\nline two\n"
-            val store =
-                store(
-                    directory,
-                    CommandRunner { _, input ->
-                        assertTrue(assertNotNull(input).contains("::Unprotect"))
-                        CommandResult(0, Base64.getEncoder().encodeToString(secret.toByteArray()), "")
-                    },
-                )
-            store.fileFor("key").writeBytes(byteArrayOf(1)) // Fake ciphertext; never used by a real backend.
+            val store = store(directory, FakeWindowsApi())
+            store.write("key", secret)
             assertEquals(secret, store.read("key"))
+            assertContentEquals(FakeWindowsApi.MARKER + secret.toByteArray().reversedArray(), store.fileFor("key").readBytes())
+            assertEquals(listOf(store.fileFor("key")), directory.listFiles()?.toList())
+            store.write("key", "")
+            assertEquals("", store.read("key"))
         }
 
-    @Test fun invalidBase64AndDpapiErrorsNeverBecomeMissingEntries() =
+    @Test fun invalidPlaintextAndDpapiErrorsNeverBecomeMissingEntries() =
         withDirectory { directory ->
-            for ((result, reason) in listOf(
-                CommandResult(0, "not base64!", "") to Reason.Corrupted,
-                CommandResult(1, "", "sensitive") to Reason.Failed,
-            )) {
-                val store = store(directory, CommandRunner { _, _ -> result })
-                store.fileFor("key").writeBytes(byteArrayOf(1))
-                val error = assertFailsWith<KeychainUnavailableException> { store.read("key") }
-                assertFalse(error.toString().contains("sensitive"))
-                assertEquals(reason, error.reason)
-            }
+            val api = FakeWindowsApi()
+            val store = store(directory, api)
+            store.fileFor("key").writeBytes(FakeWindowsApi.MARKER + byteArrayOf(-1))
+            assertEquals(Reason.Corrupted, assertFailsWith<KeychainUnavailableException> { store.read("key") }.reason)
+            store.fileFor("key").writeBytes(byteArrayOf(1))
+            val error = assertFailsWith<KeychainUnavailableException> { store.read("key") }
+            assertEquals(Reason.Failed, error.reason)
+            assertFalse(error.toString().contains("sensitive"))
         }
 
     @Test fun failedWritesKeepPreviousCiphertext() =
         withDirectory { directory ->
-            val store = store(directory, CommandRunner { _, _ -> CommandResult(1, "", "") })
+            val api = FakeWindowsApi().apply { failure = IllegalStateException("sensitive") }
+            val store = store(directory, api)
             val previous = byteArrayOf(1, 2, 3)
             store.fileFor("key").writeBytes(previous)
-            assertFailsWith<KeychainUnavailableException> { store.write("key", "replacement") }
+            val error = assertFailsWith<KeychainUnavailableException> { store.write("key", "replacement") }
+            assertEquals(Reason.Failed, error.reason)
+            assertFalse(error.toString().contains("sensitive"))
             assertContentEquals(previous, store.fileFor("key").readBytes())
+            assertEquals(listOf(store.fileFor("key")), directory.listFiles()?.toList())
         }
 
     @Test fun writesFailWhenDirectoryCannotBeCreated() =
         withDirectory { directory ->
             val occupied = File(directory, "occupied").apply { writeBytes(byteArrayOf(1)) }
-            val store = store(File(occupied, "child"), CommandRunner { _, _ -> error("Must not launch") })
+            val api = FakeWindowsApi()
+            val store = store(File(occupied, "child"), api)
             assertFailsWith<KeychainUnavailableException> { store.write("key", "secret") }
+            assertEquals(emptyList(), api.calls)
         }
 
     @Test fun deletesRemoveCiphertextAndFailedDeletesThrow() =
         withDirectory { directory ->
-            val store = store(directory, CommandRunner { _, _ -> error("Must not launch") })
+            val store = store(directory, FakeWindowsApi())
             store.fileFor("key").writeBytes(byteArrayOf(1))
             store.delete("key")
             assertFalse(store.fileFor("key").exists())
@@ -70,12 +72,13 @@ class WindowsFailureTest {
             assertFailsWith<KeychainUnavailableException> { store.delete("key") }
         }
 
-    @Test fun clearRemovesTheNamespaceDirectoryWithoutLaunchingPowerShell() =
+    @Test fun clearRemovesTheNamespaceDirectoryWithoutCallingDpapi() =
         withDirectory { directory ->
             val namespace = File(directory, "namespace")
             val sibling = File(directory, "sibling").apply { mkdirs() }
             File(sibling, "other.bin").writeBytes(byteArrayOf(1))
-            val store = store(namespace, CommandRunner { _, _ -> error("Must not launch") })
+            val api = FakeWindowsApi()
+            val store = store(namespace, api)
             store.clear()
             namespace.mkdirs()
             store.fileFor("a").writeBytes(byteArrayOf(1))
@@ -88,6 +91,7 @@ class WindowsFailureTest {
             File(namespace, "stuck").mkdir()
             File(namespace, "stuck/child").writeBytes(byteArrayOf(1))
             assertEquals(Reason.Failed, assertFailsWith<KeychainUnavailableException> { store.clear() }.reason)
+            assertEquals(emptyList(), api.calls)
         }
 
     @Test fun serviceAndAccountEachIsolateStoragePaths() {
@@ -99,8 +103,8 @@ class WindowsFailureTest {
 
     private fun store(
         directory: File,
-        runner: CommandRunner,
-    ) = WindowsDpapiStore("test", powershell = File("powershell.exe"), storageDir = directory, runner = runner)
+        api: WindowsApi,
+    ) = WindowsDpapiStore("test", storageDir = directory, windowsApi = { api })
 
     private fun withDirectory(block: (File) -> Unit) {
         val directory = Files.createTempDirectory("keychain-windows-test").toFile()

@@ -15,8 +15,8 @@ are backed by each platform's native secure storage:
 - **macOS desktop JVM** — the login keychain through `/usr/bin/security`.
 - **Linux desktop JVM** — Secret Service (for example GNOME Keyring) through
   `secret-tool`.
-- **Windows desktop JVM** — current-user DPAPI for secrets and Credential Manager for
-  passwords, through Windows PowerShell.
+- **Windows desktop JVM** — current-user DPAPI for secrets, Credential Manager for
+  passwords, and the current-user certificate store, called in-process through JNA.
 
 No platform falls back to plaintext persistence: an unavailable or failing backend
 always throws rather than silently writing to a less secure location.

@@ -1,3 +1,5 @@
+import org.gradle.testing.jacoco.tasks.JacocoReportBase
+
 plugins {
     id("credentialkeychain.library")
 }
@@ -8,6 +10,18 @@ kotlinModuleName("credential-keychain-kotlin")
 kotlin {
     android {
         namespace = "com.maniramezan.credentialkeychain"
+    }
+    sourceSets {
+        // Windows backends call DPAPI, Credential Manager, and CryptoAPI in-process.
+        jvmMain.dependencies { implementation("net.java.dev.jna:jna:5.19.1") }
+    }
+}
+
+// The JNA bindings only run on Windows, where the real-store tests cover them.
+if (!System.getProperty("os.name").startsWith("Windows")) {
+    tasks.withType<JacocoReportBase>().configureEach {
+        val classes = classDirectories.files
+        classDirectories.setFrom(files(classes).asFileTree.matching { exclude("**/JnaWindowsApi*") })
     }
 }
 
