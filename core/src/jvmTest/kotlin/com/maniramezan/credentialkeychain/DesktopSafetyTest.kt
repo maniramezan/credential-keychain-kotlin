@@ -21,8 +21,13 @@ class DesktopSafetyTest {
         }
     }
 
-    @Test fun missingToolsAreUnsupportedIncludingReadsAndDeletes() {
-        for (store in listOf(LinuxKeyringStore("test", secretTool = null), WindowsDpapiStore("test", powershell = null))) {
+    @Test fun missingToolsOrNativeLayerAreUnsupportedIncludingReadsAndDeletes() {
+        for (store in listOf(
+            LinuxKeyringStore("test", secretTool = null),
+            WindowsDpapiStore("test", windowsApi = {
+                throw UnsatisfiedLinkError("jnidispatch")
+            }),
+        )) {
             val failures =
                 listOf(
                     assertFailsWith<KeychainUnavailableException> { store.read("key") },

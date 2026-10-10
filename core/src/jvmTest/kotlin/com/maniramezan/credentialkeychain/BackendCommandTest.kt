@@ -1,8 +1,6 @@
 package com.maniramezan.credentialkeychain
 
 import java.io.File
-import java.nio.file.Files
-import java.util.Base64
 import kotlin.test.*
 
 class BackendCommandTest {
@@ -79,35 +77,6 @@ class BackendCommandTest {
                 runner = CommandRunner { _, _ -> error("Command should not start") },
             )
         assertFailsWith<IllegalArgumentException> { store.write("key", "秘".repeat(3000)) }
-    }
-
-    @Test fun windowsSendsSecretsOnlyThroughStdin() {
-        val directory = Files.createTempDirectory("keychain-command").toFile()
-        try {
-            val secret = "secret ' with unicode 秘密"
-            val encoded = Base64.getEncoder().encodeToString(secret.toByteArray())
-            var called = false
-            val store =
-                WindowsDpapiStore(
-                    "test",
-                    powershell = File("powershell.exe"),
-                    storageDir = directory,
-                    runner =
-                        CommandRunner { args, input ->
-                            called = true
-                            assertFalse(args.joinToString().contains(secret))
-                            assertFalse(args.joinToString().contains(encoded))
-                            assertTrue(checkNotNull(input).contains(encoded))
-                            assertTrue(input.contains("File]::Replace"))
-                            assertTrue(input.contains("ErrorActionPreference = 'Stop'"))
-                            CommandResult(0, "", "")
-                        },
-                )
-            store.write("../escape", secret)
-            assertTrue(called)
-        } finally {
-            directory.deleteRecursively()
-        }
     }
 
     private fun linuxStore(result: CommandResult) =

@@ -120,9 +120,9 @@ public interface CredentialKeychain {
  *
  * @property appleAccessibility when native iOS, tvOS, and watchOS entries can be read.
  *   Ignored by macOS, which stores entries in the file-based login keychain.
- * @property desktopCommandTimeout the maximum time a desktop JVM backend waits for its
- *   OS tool (`security`, `secret-tool`, or PowerShell), including time spent on an access
- *   prompt. Must be positive.
+ * @property desktopCommandTimeout the maximum time a macOS or Linux desktop JVM backend
+ *   waits for its OS tool (`security` or `secret-tool`), including time spent on an access
+ *   prompt. Must be positive. Ignored on Windows, which calls the Win32 APIs in-process.
  */
 public class KeychainOptions(
     public val appleAccessibility: AppleAccessibility = AppleAccessibility.WhenUnlocked,

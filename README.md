@@ -39,7 +39,7 @@ secure-storage adapter for each target. `CredentialKeychain` stores secrets by k
 | macOS | `macosArm64` | File-based login keychain through the Security framework |
 | macOS desktop JVM | `jvm` | Login keychain through `/usr/bin/security` |
 | Linux desktop JVM | `jvm` | Secret Service through `secret-tool` |
-| Windows desktop JVM | `jvm` | Current-user DPAPI (secrets) and Credential Manager (passwords) through Windows PowerShell |
+| Windows desktop JVM | `jvm` | Current-user DPAPI (secrets), Credential Manager (passwords), and the current-user certificate store, called in-process through JNA |
 
 JVM artifacts target Java 17. Intel Apple targets (`iosX64`, `macosX64`, `tvosX64`,
 `watchosX64`) are not published; Intel Macs are supported through the JVM target. Windows
@@ -60,11 +60,14 @@ kotlin {
 ```
 
 Both artifacts share one version. The biometric artifact adds `androidx.biometric` and
-`kotlinx-coroutines-core`; the core artifact has no dependencies.
+`kotlinx-coroutines-core`. The core artifact's JVM variant depends on
+[JNA](https://github.com/java-native-access/jna) (`net.java.dev.jna:jna`) for the Windows
+backends; its other variants have no dependencies.
 
 No extra platform dependency, manifest entry, or entitlement is required to link the
-library. Desktop JVM targets shell out to an OS tool (`security`, `secret-tool`,
-`powershell.exe`) that must be present on the machine — see
+library. On macOS and Linux the desktop JVM target shells out to an OS tool (`security` or
+`secret-tool`) that must be present on the machine; on Windows it calls the Win32 APIs
+directly — see
 [Contract and requirements](#contract-and-requirements).
 
 ## Usage from shared code
@@ -134,7 +137,7 @@ val keychain = CredentialKeychain.forCurrentPlatform(
     accountName = "user-123",
     options = KeychainOptions(
         appleAccessibility = AppleAccessibility.AfterFirstUnlock, // iOS/tvOS/watchOS background access
-        desktopCommandTimeout = 60.seconds, // desktop JVM tool timeout, including access prompts
+        desktopCommandTimeout = 60.seconds, // macOS/Linux JVM tool timeout, including access prompts
     ),
 )
 ```
@@ -388,10 +391,14 @@ keychain.write("github-token", token)
 - Linux requires `secret-tool` and an accessible Secret Service session (for example,
   GNOME Keyring). Headless sessions may not have one. Credentials should stay below
   8 KiB, the input limit of commonly deployed `secret-tool` versions.
-- Windows requires Windows PowerShell (`powershell.exe`) and a loaded user profile.
-  Ciphertext lives under `%LOCALAPPDATA%\credential-keychain\` in hashed service/account and
-  key paths. DPAPI binds decryption to the Windows user, not to a particular application.
-- Desktop subprocesses time out after `desktopCommandTimeout` (30 seconds by default).
+- Windows requires a loaded user profile. The library calls `CryptProtectData`, the
+  Credential Manager (`Cred*W`), and CryptoAPI in-process through JNA, without launching a
+  helper process. Ciphertext lives under `%LOCALAPPDATA%\credential-keychain\` in hashed
+  service/account and key paths. DPAPI binds decryption to the Windows user, not to a
+  particular application. On JDK 24 and later, JNA's native access prints a warning unless the
+  application is started with `--enable-native-access=ALL-UNNAMED` (or `=com.sun.jna` on the
+  module path).
+- macOS and Linux subprocesses time out after `desktopCommandTimeout` (30 seconds by default).
   Secrets are supplied through stdin, and backend error output is never included in exceptions.
 
 ## Security model

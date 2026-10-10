@@ -2,7 +2,6 @@ package com.maniramezan.credentialkeychain
 
 import com.maniramezan.credentialkeychain.KeychainUnavailableException.Reason
 import java.io.File
-import java.util.Base64
 import kotlin.test.*
 
 class PasswordBackendCommandTest {
@@ -248,81 +247,73 @@ class PasswordBackendCommandTest {
         assertEquals(Reason.Unsupported, assertFailsWith<KeychainUnavailableException> { noTool.findAll("api") }.reason)
     }
 
-    @Test fun windowsSendsSecretsOnlyThroughStdin() {
-        var script = ""
-        val store =
-            WindowsCredentialManagerStore(
-                "service",
-                "account",
-                File("powershell.exe"),
-                CommandRunner { args, stdin ->
-                    assertFalse(args.joinToString().contains("top-secret"))
-                    assertFalse(args.joinToString().contains(base64("top-secret")))
-                    script = checkNotNull(stdin)
-                    CommandResult(0, "", "")
-                },
-            )
-        store.save(PasswordCredential("api.example.com", "alice", "top-secret"))
-        assertTrue(script.contains(base64("top-secret")))
-        assertTrue(script.contains(base64("alice")))
-        assertTrue(script.contains("CredWriteW"))
-        assertTrue(script.contains("[CkkCredentials]::Write('${store.targetFor("api.example.com", "alice")}'"))
-        store.clear()
-        assertTrue(script.contains("[CkkCredentials]::DeleteAll('credential-keychain-kotlin:password:${digest(namespace)}:*')"))
+    @Test fun windowsStoresUsernameAndUtf8PasswordUnderHashedTargets() {
+        val api = FakeWindowsApi()
+        val store = WindowsCredentialManagerStore("service", "account") { api }
+        val other = WindowsCredentialManagerStore("service", "other") { api }
+        store.save(PasswordCredential("api.example.com", "alice", "top-secret 秘密"))
+        other.save(PasswordCredential("api.example.com", "alice", "other account"))
+        val target = store.targetFor("api.example.com", "alice")
+        assertEquals("credential-keychain-kotlin:password:${digest(namespace)}:${digest("api.example.com")}:${digest("alice")}", target)
+        val stored = assertNotNull(api.credentials[target])
+        assertEquals("alice", stored.userName)
+        assertContentEquals("top-secret 秘密".toByteArray(Charsets.UTF_8), stored.secret)
+        assertEquals(PasswordCredential("api.example.com", "alice", "top-secret 秘密"), store.find("api.example.com", "alice"))
         store.delete("api.example.com", "alice")
-        assertTrue(script.contains("[CkkCredentials]::Delete('${store.targetFor("api.example.com", "alice")}')"))
+        assertNull(store.find("api.example.com", "alice"))
+        store.save(PasswordCredential("api.example.com", "bob", "pw"))
+        store.save(PasswordCredential("other.example.com", "carol", "pw"))
+        store.clear()
+        assertEquals(listOf(other.targetFor("api.example.com", "alice")), api.credentials.keys.toList())
     }
 
-    @Test fun windowsParsesCredentialsAndRejectsInconsistentData() {
-        val target = WindowsCredentialManagerStore("service", "account").targetFor("api.example.com", "alice")
-        val bobTarget = WindowsCredentialManagerStore("service", "account").targetFor("api.example.com", "bob")
-        val alice = "${base64("alice")}\t${base64("pw 秘密")}\t$target\r\n"
-        val bob = "${base64("bob")}\t${base64("other")}\t$bobTarget\r\n"
-        assertEquals(PasswordCredential("api.example.com", "alice", "pw 秘密"), windows(alice).find("api.example.com", "alice"))
-        assertNull(windows("").find("api.example.com", "alice"))
-        assertEquals(listOf("alice", "bob"), windows(alice + bob).findAll("api.example.com").map { it.username })
-        assertEquals(emptyList(), windows("\r\n").findAll("api.example.com"))
+    @Test fun windowsReadsCredentialsAndRejectsInconsistentData() {
+        val store = WindowsCredentialManagerStore("service", "account")
+        val alice = store.targetFor("api.example.com", "alice")
+        val bob = store.targetFor("api.example.com", "bob")
+
+        fun windows(vararg credentials: WindowsCredential) =
+            WindowsCredentialManagerStore("service", "account") {
+                FakeWindowsApi().apply { credentials.forEach { this.credentials[it.target] = it } }
+            }
+
+        fun credential(
+            target: String,
+            userName: String,
+            secret: ByteArray,
+        ) = WindowsCredential(target, userName, secret)
+        val aliceEntry = credential(alice, "alice", "pw 秘密".toByteArray())
+        val bobEntry = credential(bob, "bob", "other".toByteArray())
+        assertEquals(PasswordCredential("api.example.com", "alice", "pw 秘密"), windows(aliceEntry).find("api.example.com", "alice"))
+        assertNull(windows().find("api.example.com", "alice"))
+        assertEquals(listOf("alice", "bob"), windows(aliceEntry, bobEntry).findAll("api.example.com").map { it.username })
+        assertEquals(emptyList(), windows().findAll("api.example.com"))
         val corrupted =
             listOf(
-                { windows(bob).find("api.example.com", "alice") },
-                { windows(alice + alice).find("api.example.com", "alice") },
-                { windows("garbage\r\n").findAll("api.example.com") },
-                { windows("${base64("alice")}\t!!!\t$target").findAll("api.example.com") },
-                { windows("${base64("mallory")}\t${base64("pw")}\t$target").findAll("api.example.com") },
-                { windows("${Base64.getEncoder().encodeToString(byteArrayOf(-1))}\t${base64("pw")}\t$target").findAll("api.example.com") },
+                { windows(credential(alice, "bob", "pw".toByteArray())).find("api.example.com", "alice") },
+                { windows(credential(alice, "mallory", "pw".toByteArray())).findAll("api.example.com") },
+                { windows(credential(alice, "alice", byteArrayOf(-1))).findAll("api.example.com") },
             )
         for (call in corrupted) assertEquals(Reason.Corrupted, assertFailsWith<KeychainUnavailableException> { call() }.reason)
     }
 
-    @Test fun windowsFailuresAreSanitizedAndMissingPowerShellIsUnsupported() {
+    @Test fun windowsFailuresAreSanitizedAndMissingNativeLayerIsUnsupported() {
         val broken =
-            WindowsCredentialManagerStore(
-                "service",
-                "account",
-                File("powershell.exe"),
-                CommandRunner {
-                    _,
-                    _,
-                    ->
-                    CommandResult(1, "", "sensitive")
-                },
+            WindowsCredentialManagerStore("service", "account") { FakeWindowsApi().apply { failure = IllegalStateException("sensitive") } }
+        val calls =
+            listOf(
+                { broken.find("api", "alice") },
+                { broken.findAll("api") },
+                { broken.delete("api", "alice") },
+                { broken.clear() },
+                { broken.save(PasswordCredential("api", "alice", "secret")) },
             )
-        val error = assertFailsWith<KeychainUnavailableException> { broken.find("api", "alice") }
-        assertEquals(Reason.Failed, error.reason)
-        assertFalse(error.toString().contains("sensitive"))
-        val missing =
-            WindowsCredentialManagerStore(
-                "service",
-                "account",
-                powershell = null,
-                runner =
-                    CommandRunner {
-                        _,
-                        _,
-                        ->
-                        error("must not launch")
-                    },
-            )
+        for (call in calls) {
+            val error = assertFailsWith<KeychainUnavailableException> { call() }
+            assertEquals(Reason.Failed, error.reason)
+            assertFalse(error.toString().contains("sensitive"))
+        }
+        val missing = WindowsCredentialManagerStore("service", "account") { throw UnsatisfiedLinkError("jnidispatch") }
         assertEquals(Reason.Unsupported, assertFailsWith<KeychainUnavailableException> { missing.findAll("api") }.reason)
     }
 
@@ -337,9 +328,4 @@ class PasswordBackendCommandTest {
 
     private fun linux(result: CommandResult) =
         LinuxPasswordStore("service", "account", File("secret-tool"), CommandRunner { _, _ -> result })
-
-    private fun windows(stdout: String) =
-        WindowsCredentialManagerStore("service", "account", File("powershell.exe"), CommandRunner { _, _ -> CommandResult(0, stdout, "") })
-
-    private fun base64(value: String) = Base64.getEncoder().encodeToString(value.toByteArray(Charsets.UTF_8))
 }
