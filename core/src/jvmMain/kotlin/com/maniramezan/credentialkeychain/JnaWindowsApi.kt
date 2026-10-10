@@ -16,7 +16,10 @@ import com.sun.jna.win32.StdCallLibrary
  * helper process or script host is involved. Secrets are copied into native buffers this class
  * owns and those buffers, and the ones Windows returns, are zeroed before they are released.
  */
-internal class JnaWindowsApi : WindowsApi {
+internal class JnaWindowsApi(
+    /** Test seam: runs just before an imported identity is added to `My`, so tests can fail an import there. */
+    private val beforeStoreAdd: ((KeyLocation) -> Unit)? = null,
+) : WindowsApi {
     private val crypt32 = Native.load("crypt32", Crypt32::class.java)
     private val advapi32 = Native.load("advapi32", Advapi32::class.java)
     private val ncrypt = Native.load("ncrypt", NCrypt::class.java)
@@ -132,6 +135,7 @@ internal class JnaWindowsApi : WindowsApi {
                 setFriendlyName(identity, friendlyName)
                 withPersonalStore { store ->
                     removeIdentities(store, friendlyName)
+                    beforeStoreAdd?.invoke(checkNotNull(keyLocation(identity)))
                     if (!crypt32.CertAddCertificateContextToStore(store, identity, CERT_STORE_ADD_REPLACE_EXISTING, null)) {
                         throw win32Failure("CertAddCertificateContextToStore")
                     }
@@ -148,6 +152,16 @@ internal class JnaWindowsApi : WindowsApi {
     }
 
     override fun deleteIdentities(friendlyName: String) = withPersonalStore { removeIdentities(it, friendlyName) }
+
+    /** The key containers of the current-user `My` certificates named [friendlyName]. */
+    internal fun keyLocations(friendlyName: String): List<KeyLocation> =
+        withPersonalStore { store ->
+            val locations = mutableListOf<KeyLocation>()
+            forEachCertificate(store) { context ->
+                if (stringProperty(context, CERT_FRIENDLY_NAME_PROP_ID) == friendlyName) keyLocation(context)?.let(locations::add)
+            }
+            locations
+        }
 
     /** Imports into a temporary store; keys go to the user's key set and are not exportable. */
     private fun importPfx(
@@ -270,7 +284,8 @@ internal class JnaWindowsApi : WindowsApi {
         }
     }
 
-    private class KeyLocation(
+    /** Where a certificate's private key lives: a CNG key when [providerType] is 0, otherwise a CryptoAPI container. */
+    internal class KeyLocation(
         val container: String,
         val provider: String?,
         val providerType: Int,
