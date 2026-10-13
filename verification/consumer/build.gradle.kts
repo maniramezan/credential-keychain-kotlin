@@ -1,7 +1,7 @@
 import java.util.Properties
 
 plugins {
-    kotlin("multiplatform") version "2.4.20"
+    kotlin("multiplatform") version "2.4.21"
     id("com.android.kotlin.multiplatform.library") version "9.4.1"
 }
 val releaseProperties =
