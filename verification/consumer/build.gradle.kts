@@ -8,8 +8,8 @@ val releaseProperties =
     Properties().apply {
         rootDir.resolve("../../gradle.properties").inputStream().use { load(it) }
     }
-val keychainDependency = "com.maniramezan:credential-keychain-kotlin:${releaseProperties.getProperty("VERSION_NAME")}"
-val biometricDependency = "com.maniramezan:credential-keychain-kotlin-biometric:${releaseProperties.getProperty("VERSION_NAME")}"
+val keychainDependency = "io.github.maniramezan:credential-keychain-kotlin:${releaseProperties.getProperty("VERSION_NAME")}"
+val biometricDependency = "io.github.maniramezan:credential-keychain-kotlin-biometric:${releaseProperties.getProperty("VERSION_NAME")}"
 repositories {
     exclusiveContent {
         forRepository {
@@ -20,7 +20,7 @@ repositories {
                     .orElse(rootDir.resolve("../../build/verification-repository").canonicalPath)
             maven { url = uri(verificationRepository.get()) }
         }
-        filter { includeGroup("com.maniramezan") }
+        filter { includeGroup("io.github.maniramezan") }
     }
     google()
     mavenCentral()

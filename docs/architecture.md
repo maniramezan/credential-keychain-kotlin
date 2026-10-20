@@ -7,9 +7,9 @@ attempt to discover an Android context.
 
 ## Project layout
 
-- `core/` is the published `com.maniramezan:credential-keychain-kotlin` library: sources,
+- `core/` is the published `io.github.maniramezan:credential-keychain-kotlin` library: sources,
   API baselines (`core/api/`), and its Dokka module page (`core/module.md`).
-- `biometric/` is the published `com.maniramezan:credential-keychain-kotlin-biometric` artifact
+- `biometric/` is the published `io.github.maniramezan:credential-keychain-kotlin-biometric` artifact
   with `ProtectedKeychain`. It depends on `core` for `KeychainUnavailableException`, copies
   core's internal validators (a parity test keeps them identical), and adds a
   `localAuthenticationMain` source set shared by iOS and macOS, since tvOS has no

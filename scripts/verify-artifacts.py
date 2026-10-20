@@ -52,7 +52,7 @@ def verify_module(repository, name, version, signed):
             if signed and (not signature.is_file() or signature.stat().st_size == 0):
                 raise ValueError(f"Missing signature: {path}")
         pom = ET.parse(directory / (base + ".pom")).getroot()
-        for field, value in (("groupId", "com.maniramezan"), ("artifactId", artifact), ("version", version)):
+        for field, value in (("groupId", "io.github.maniramezan"), ("artifactId", artifact), ("version", version)):
             if pom.findtext("m:" + field, namespaces=NS) != value:
                 raise ValueError(f"Incorrect POM {field}: {artifact}")
         for field in ("name", "description", "url", "licenses/license/name", "developers/developer/id", "scm/connection"):
@@ -73,7 +73,7 @@ def verify_module(repository, name, version, signed):
                     raise ValueError(f"Broken metadata file reference: {artifact}/{item['url']}")
             available = variant.get("available-at")
             if available:
-                if available["group"] != "com.maniramezan" or available["version"] != version:
+                if available["group"] != "io.github.maniramezan" or available["version"] != version:
                     raise ValueError(f"Unexpected variant coordinates: {artifact}")
                 file = (directory / available["url"]).resolve()
                 if not file.is_relative_to(repository) or not file.is_file():

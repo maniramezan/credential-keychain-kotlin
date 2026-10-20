@@ -16,7 +16,7 @@ plugins {
     jacoco
 }
 
-group = "com.maniramezan"
+group = "io.github.maniramezan"
 version = providers.gradleProperty("VERSION_NAME").get()
 repositories {
     google()
