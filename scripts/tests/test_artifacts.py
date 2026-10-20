@@ -22,7 +22,7 @@ class ArtifactValidationTest(unittest.TestCase):
 
     def directory(self, suffix="", name=NAME):
         artifact = name + ("-" + suffix if suffix else "")
-        return self.root / "com/maniramezan" / artifact / self.version, f"{artifact}-{self.version}"
+        return self.root / "io/github/maniramezan" / artifact / self.version, f"{artifact}-{self.version}"
 
     def create_repository(self, name):
         root_variants = []

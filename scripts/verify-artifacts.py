@@ -41,7 +41,7 @@ def verify_module(repository, name, version, signed):
     expected = {name + ("-" + target if target else "") for target in PLATFORMS}
     for target, extension in PLATFORMS.items():
         artifact = name + ("-" + target if target else "")
-        directory = repository / "com/maniramezan" / artifact / version
+        directory = repository / "io/github/maniramezan" / artifact / version
         base = f"{artifact}-{version}"
         paths = [directory / (base + suffix) for suffix in
                  (f".{extension}", ".pom", ".module", "-sources.jar", "-javadoc.jar")]
