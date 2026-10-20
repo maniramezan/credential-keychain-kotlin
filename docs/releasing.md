@@ -28,9 +28,11 @@ Root Gradle tasks such as `jvmCoverageVerification` run in every module.
 4. Register/verify ownership of the `com.maniramezan` namespace in the
    [Sonatype Central Portal](https://central.sonatype.com/).
 5. Generate a Central Portal user token and prepare an OpenPGP signing key whose public
-   key is available to Central. Create a GitHub environment named `maven-central` with
-   required reviewers and a deployment rule limited to release tags. Add these
-   environment secrets:
+   key is available to Central (see [Prepare the signing key](#prepare-the-signing-key)).
+   Create a GitHub environment named `maven-central` with a
+   deployment rule limited to release tags (for example `*.*.*`); it needs no required
+   reviewers, since the manual publish step in Central Portal is the final gate. Add these
+   repository secrets:
 
    | Secret | Value |
    |---|---|
@@ -44,13 +46,41 @@ Root Gradle tasks such as `jvmCoverageVerification` run in every module.
 6. Add the repository secret `RELEASE_PLEASE_TOKEN`: a fine-grained personal access
    token restricted to this repository with **Contents**, **Pull requests**, and
    **Issues** read/write permissions. Enable Actions to create pull requests in
-   repository settings. Keep this separate from the `maven-central` environment secrets.
+   repository settings. Keep this separate from the Maven Central secrets.
 
 Release Please deliberately requires this token instead of falling back to `GITHUB_TOKEN`:
 the built-in token's PR/release events do not start the required PR checks, the release
 workflow, or the Pages deployment. See
 [Release Please's token guidance](https://github.com/googleapis/release-please-action#other-actions-on-release-please-prs)
 and the [publisher's Central setup guide](https://vanniktech.github.io/gradle-maven-publish-plugin/central/).
+
+## Prepare the signing key
+
+Staging fails at signing if `SIGNING_KEY` cannot be parsed, so check the key before storing it.
+
+1. Generate a key if you do not have one: `gpg --full-generate-key`. Note its ID from
+   `gpg --list-secret-keys --keyid-format long`.
+2. Publish the public half so Central can validate signatures:
+   `gpg --keyserver keyserver.ubuntu.com --send-keys <key id>`. Central also looks at
+   `keys.openpgp.org`; that server only serves keys after email verification.
+3. Export the private key as ASCII armor, header and footer lines included, with plain
+   `\n` line endings:
+
+   ```sh
+   gpg --export-secret-keys --armor <key id> > signing-key.asc
+   ```
+
+4. Store it without altering it, then delete the file:
+
+   ```sh
+   gh secret set SIGNING_KEY < signing-key.asc
+   gh secret set SIGNING_PASSWORD
+   rm signing-key.asc
+   ```
+
+   Do not paste the key through a shell variable or an editor that rewraps lines, and do
+   not export the public key by mistake. `SIGNING_PASSWORD` is the key's passphrase, empty
+   if it has none.
 
 ## Verify a candidate
 
@@ -112,7 +142,7 @@ from the generated filesystem repository and compiles for every declared target.
    The published release starts **Stage Maven Central release** and the Pages deployment.
    A GitHub release does not mean the artifacts are already available in Central.
 4. The staging workflow verifies the tag/version match and reruns the complete Verify
-   workflow on that commit. After the `maven-central` environment gate, it builds and
+   workflow on that commit. In the tag-restricted `maven-central` environment, it builds and
    checks the full signed artifact set and stages it with `publishToMavenCentral`.
 5. Inspect the staged deployment and its validation results in Central Portal. Publish
    it there after final review. The workflow does **not** call
@@ -127,6 +157,30 @@ maintains the manifest. Do not reset it or leave a permanent `release-as` overri
 Before 1.0, fixes and features bump the patch version and breaking changes bump the
 minor version. To intentionally release 1.0.0, use a conventional commit with a
 `Release-As: 1.0.0` footer. Snapshot PRs are disabled.
+
+Release Please names the GitHub release after the bare version (`0.1.0`) because
+`include-v-in-release-name` is `false` in `release-please-config.json`; its default adds a
+`v` to the title even when the tag has none.
+
+## Troubleshooting staging
+
+Open the failed **Stage Maven Central release** run and read the failing step.
+
+| Symptom | Cause and fix |
+|---|---|
+| `Could not read PGP secret key` in `signAllPublications` | `SIGNING_KEY` is not a valid ASCII-armored private key, or `SIGNING_PASSWORD` is wrong. Re-export and re-store it as in [Prepare the signing key](#prepare-the-signing-key). |
+| Central rejects the deployment for signatures or a missing public key | The public key is not on a keyserver Central queries. Upload it and wait a few minutes. |
+| Central rejects the namespace | Verify `com.maniramezan` in Central Portal (step 4 of setup). |
+| `401` from Central | `MAVEN_CENTRAL_USERNAME` or `MAVEN_CENTRAL_PASSWORD` is not a Central Portal user token. Generate a new token. |
+
+After fixing the cause, rerun staging on the existing tag; do not create a new tag:
+
+```sh
+gh workflow run release.yml --ref 0.1.0
+```
+
+A staged deployment that Central rejected or that you will not publish can be dropped in
+Central Portal; a published version cannot be removed.
 
 If automation needs recovery, rerun **Release Please** on `main`. If the GitHub release
 already exists but staging or documentation did not start, dispatch them on its tag:
