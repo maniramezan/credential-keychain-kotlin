@@ -52,9 +52,9 @@ native backends, and no web (`js`, `wasmJs`) targets.
 // build.gradle.kts
 kotlin {
     sourceSets.commonMain.dependencies {
-        implementation("com.maniramezan:credential-keychain-kotlin:0.1.0") // x-release-please-version
+        implementation("io.github.maniramezan:credential-keychain-kotlin:0.1.0") // x-release-please-version
         // Optional: secrets that require biometric authentication to read.
-        implementation("com.maniramezan:credential-keychain-kotlin-biometric:0.1.0") // x-release-please-version
+        implementation("io.github.maniramezan:credential-keychain-kotlin-biometric:0.1.0") // x-release-please-version
     }
 }
 ```

@@ -5,7 +5,7 @@
 // - Show manifest properties: true
 // - Show declarations: true
 
-// Library unique name: <com.maniramezan:credential-keychain-kotlin>
+// Library unique name: <io.github.maniramezan:credential-keychain-kotlin>
 final enum class com.maniramezan.credentialkeychain/AppleAccessibility : kotlin/Enum<com.maniramezan.credentialkeychain/AppleAccessibility> { // com.maniramezan.credentialkeychain/AppleAccessibility|null[0]
     enum entry AfterFirstUnlock // com.maniramezan.credentialkeychain/AppleAccessibility.AfterFirstUnlock|null[0]
     enum entry WhenUnlocked // com.maniramezan.credentialkeychain/AppleAccessibility.WhenUnlocked|null[0]

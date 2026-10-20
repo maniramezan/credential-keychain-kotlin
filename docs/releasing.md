@@ -1,6 +1,6 @@
 # Release and maintenance guide
 
-The release pipeline targets Maven Central (`com.maniramezan:credential-keychain-kotlin`) and
+The release pipeline targets Maven Central (`io.github.maniramezan:credential-keychain-kotlin`) and
 GitHub Pages. A successful local compiler run alone does not establish release readiness:
 the complete Verify workflow, artifact consumer, and device tests must pass on the exact
 release commit.
@@ -25,7 +25,7 @@ Root Gradle tasks such as `jvmCoverageVerification` run in every module.
    requests and `main`, and deploys only for published releases.
 3. In **Settings → Code security**, enable **Private vulnerability reporting** so the
    link in `SECURITY.md` works.
-4. Register/verify ownership of the `com.maniramezan` namespace in the
+4. Register/verify ownership of the `io.github.maniramezan` namespace in the
    [Sonatype Central Portal](https://central.sonatype.com/).
 5. Generate a Central Portal user token and prepare an OpenPGP signing key whose public
    key is available to Central (see [Prepare the signing key](#prepare-the-signing-key)).
@@ -170,7 +170,7 @@ Open the failed **Stage Maven Central release** run and read the failing step.
 |---|---|
 | `Could not read PGP secret key` in `signAllPublications` | `SIGNING_KEY` is not a valid ASCII-armored private key, or `SIGNING_PASSWORD` is wrong. Re-export and re-store it as in [Prepare the signing key](#prepare-the-signing-key). |
 | Central rejects the deployment for signatures or a missing public key | The public key is not on a keyserver Central queries. Upload it and wait a few minutes. |
-| Central rejects the namespace | Verify `com.maniramezan` in Central Portal (step 4 of setup). |
+| Central rejects the namespace | Verify `io.github.maniramezan` in Central Portal (step 4 of setup). |
 | `401` from Central | `MAVEN_CENTRAL_USERNAME` or `MAVEN_CENTRAL_PASSWORD` is not a Central Portal user token. Generate a new token. |
 
 After fixing the cause, rerun staging on the existing tag; do not create a new tag:

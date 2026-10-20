@@ -22,7 +22,7 @@ class ArtifactValidationTest(unittest.TestCase):
 
     def directory(self, suffix="", name=NAME):
         artifact = name + ("-" + suffix if suffix else "")
-        return self.root / "com/maniramezan" / artifact / self.version, f"{artifact}-{self.version}"
+        return self.root / "io/github/maniramezan" / artifact / self.version, f"{artifact}-{self.version}"
 
     def create_repository(self, name):
         root_variants = []
@@ -32,7 +32,7 @@ class ArtifactValidationTest(unittest.TestCase):
             artifact = name + ("-" + target if target else "")
             (directory / f"{base}.{extension}").write_bytes(b"binary")
             (directory / f"{base}.pom").write_text(f'''<project xmlns="http://maven.apache.org/POM/4.0.0">
-                <groupId>com.maniramezan</groupId><artifactId>{artifact}</artifactId><version>{self.version}</version>
+                <groupId>io.github.maniramezan</groupId><artifactId>{artifact}</artifactId><version>{self.version}</version>
                 <name>Keychain</name><description>Credentials</description><url>https://example.test</url>
                 <licenses><license><name>MIT</name></license></licenses>
                 <developers><developer><id>maintainer</id></developer></developers>
@@ -44,7 +44,7 @@ class ArtifactValidationTest(unittest.TestCase):
                 self.write_classes(directory / f"{base}.jar", artifacts.JVM_CLASS_MAJOR)
             (directory / f"{base}.module").write_text(json.dumps({"variants": [{"files": [{"url": f"{base}.{extension}"}]}]}))
             if target:
-                root_variants.append({"available-at": {"group": "com.maniramezan", "module": artifact, "version": self.version,
+                root_variants.append({"available-at": {"group": "io.github.maniramezan", "module": artifact, "version": self.version,
                     "url": f"../../{artifact}/{self.version}/{base}.module"}})
         directory, base = self.directory(name=name)
         (directory / f"{base}.module").write_text(json.dumps({"variants": root_variants}))
